@@ -102,6 +102,17 @@ type CreateBookingRequest struct {
 	ScheduleID string `json:"scheduleId"`
 }
 
+// CreateBooking for legacy compatibility (test support)
+type CreateBooking struct {
+	SlotDate      string  `json:"slotDate"`
+	SlotStartTime string  `json:"slotStartTime"`
+	Name          string  `json:"name"`
+	Email         string  `json:"email"`
+	Recurrence    *string `json:"recurrence,omitempty"`
+	DayOfWeek     *int32  `json:"dayOfWeek,omitempty"`
+	EndDate       *string `json:"endDate,omitempty"`
+}
+
 // Slot for public display
 type Slot struct {
 	ID        string `json:"id"`
