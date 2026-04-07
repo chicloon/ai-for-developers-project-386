@@ -25,6 +25,7 @@ func NewRouter(pool *pgxpool.Pool) *chi.Mux {
 		r.Mount("/blocked-days", blockedDaysRouter(pool))
 		r.Mount("/slots", slotsRouter(pool))
 		r.Mount("/bookings", bookingsRouter(pool))
+		r.Mount("/groups", groupsRouter(pool))
 	})
 
 	return r
