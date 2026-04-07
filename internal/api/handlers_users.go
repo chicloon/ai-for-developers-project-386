@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -178,7 +179,7 @@ func (h *usersHandler) getSlotsForDate(ctx context.Context, userID, date string)
 
 	// Get booked slots
 	bookedRows, err := h.pool.Query(ctx, `
-		SELECT s.start_time 
+		SELECT TO_CHAR(s.start_time, 'HH24:MI')
 		FROM bookings b
 		JOIN schedules s ON s.id = b.schedule_id
 		WHERE b.owner_id = $1 
@@ -208,8 +209,14 @@ func (h *usersHandler) getSlotsForDate(ctx context.Context, userID, date string)
 			continue
 		}
 
-		start, _ := time.Parse("15:04:05", s.startTime)
-		end, _ := time.Parse("15:04:05", s.endTime)
+		start, err := time.Parse("15:04:05", s.startTime)
+		if err != nil {
+			return nil, fmt.Errorf("invalid start time format: %w", err)
+		}
+		end, err := time.Parse("15:04:05", s.endTime)
+		if err != nil {
+			return nil, fmt.Errorf("invalid end time format: %w", err)
+		}
 
 		for current := start; current.Before(end); current = current.Add(slotDuration) {
 			slotEnd := current.Add(slotDuration)
