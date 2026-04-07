@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS group_members (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     group_id UUID NOT NULL REFERENCES visibility_groups(id) ON DELETE CASCADE,
     member_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    added_by UUID NOT NULL REFERENCES users(id),
+    added_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     added_at TIMESTAMP NOT NULL DEFAULT NOW(),
     UNIQUE(group_id, member_id)
 );
@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS schedules (
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
     is_blocked BOOLEAN DEFAULT FALSE,
+    CHECK (end_time > start_time),
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     CHECK (
         (type = 'recurring' AND day_of_week IS NOT NULL AND date IS NULL) OR
@@ -47,13 +48,13 @@ CREATE TABLE IF NOT EXISTS schedules (
 -- Bookings
 CREATE TABLE IF NOT EXISTS bookings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    schedule_id UUID NOT NULL REFERENCES schedules(id),
+    schedule_id UUID NOT NULL REFERENCES schedules(id) ON DELETE CASCADE,
     booker_id UUID NOT NULL REFERENCES users(id),
     owner_id UUID NOT NULL REFERENCES users(id),
     status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'cancelled')),
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     cancelled_at TIMESTAMP,
-    cancelled_by UUID REFERENCES users(id)
+    cancelled_by UUID REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- Indexes
