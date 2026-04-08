@@ -28,7 +28,8 @@ export class SchedulePage {
 
   async clickAdd() {
     await this.addButton.click()
-    await expect(this.modal).toBeVisible()
+    // Wait for modal to open and check content is visible
+    await expect(this.page.locator('[data-testid="schedule-type-select"]')).toBeVisible({ timeout: 5000 })
   }
 
   async fillScheduleForm(params: {
@@ -39,13 +40,29 @@ export class SchedulePage {
     endTime: string
     isBlocked?: boolean
   }) {
-    // Select type
+    // Select type - click on the select to open dropdown
     await this.page.locator('[data-testid="schedule-type-select"]').click()
-    await this.page.locator(`[data-value="${params.type}"]`).click()
+    await this.page.waitForTimeout(300)
+    // Click on the option by text in the dropdown (Mantine renders dropdown in portal)
+    const typeLabel = params.type === 'recurring' ? 'Повторяющееся' : 'Разовое'
+    await this.page.locator('.mantine-Select-option', { hasText: typeLabel }).click()
+    // Wait for form to re-render based on type
+    await this.page.waitForTimeout(400)
 
     if (params.type === 'recurring' && params.dayOfWeek) {
       await this.page.locator('[data-testid="schedule-day-select"]').click()
-      await this.page.locator(`[data-value="${params.dayOfWeek}"]`).click()
+      await this.page.waitForTimeout(300)
+      // Map day number to Russian name
+      const dayNames: Record<string, string> = {
+        '0': 'Воскресенье',
+        '1': 'Понедельник',
+        '2': 'Вторник',
+        '3': 'Среда',
+        '4': 'Четверг',
+        '5': 'Пятница',
+        '6': 'Суббота'
+      }
+      await this.page.locator('.mantine-Select-option', { hasText: dayNames[params.dayOfWeek] }).click()
     } else if (params.type === 'one-time' && params.date) {
       await this.page.locator('[data-testid="schedule-date-input"]').fill(params.date)
     }
@@ -78,7 +95,8 @@ export class SchedulePage {
 
   async editSchedule(scheduleId: string) {
     await this.page.locator(`[data-testid="schedule-edit-${scheduleId}"]`).click()
-    await expect(this.modal).toBeVisible()
+    // Wait for modal to open and check content is visible
+    await expect(this.page.locator('[data-testid="schedule-type-select"]')).toBeVisible({ timeout: 5000 })
   }
 
   async expectScheduleVisible(scheduleId: string, timeRange: string) {

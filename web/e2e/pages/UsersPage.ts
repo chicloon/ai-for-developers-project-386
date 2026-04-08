@@ -26,11 +26,11 @@ export class UsersPage {
     return this.page.locator(`[data-testid="user-card-${userId}"]`)
   }
 
-  async getUserName(userId: string) {
+  getUserName(userId: string): Locator {
     return this.page.locator(`[data-testid="user-name-${userId}"]`)
   }
 
-  async getUserEmail(userId: string) {
+  getUserEmail(userId: string): Locator {
     return this.page.locator(`[data-testid="user-email-${userId}"]`)
   }
 
