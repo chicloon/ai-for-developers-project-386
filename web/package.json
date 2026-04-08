@@ -5,7 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:smoke": "playwright test specs/smoke",
+    "test:e2e:auth": "playwright test specs/auth",
+    "test:e2e:features": "playwright test specs/features"
   },
   "dependencies": {
     "@mantine/core": "latest",
@@ -18,6 +24,7 @@
     "react-dom": "latest"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",

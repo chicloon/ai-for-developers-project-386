@@ -4,9 +4,10 @@ import "@typespec/openapi";
 import "@typespec/openapi3";
 
 import "./models.tsp";
-import "./availability-rules.tsp";
-import "./blocked-days.tsp";
-import "./slots.tsp";
+import "./auth.tsp";
+import "./users.tsp";
+import "./schedules.tsp";
+import "./groups.tsp";
 import "./bookings.tsp";
 
 using Http;

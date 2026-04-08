@@ -3,9 +3,13 @@ using Rest;
 
 namespace CallBooking;
 
-@route("/api/bookings")
+@route("/api/my/bookings")
 interface Bookings {
-  @post create(@body booking: CreateBooking): { @statusCode _: 201; ...Booking } | ErrorResponse;
-  @get list(): Booking[] | ErrorResponse;
-  @delete @route("/{id}") delete(@path id: string): void | ErrorResponse;
+  @get list(): BookingsListResponse | ErrorResponse;
+
+  @post create(@body booking: CreateBookingRequest): { @statusCode _: 201; ...Booking } | ErrorResponse;
+
+  @delete
+  @route("/{id}")
+  cancel(@path id: string): { @statusCode _: 204; } | ErrorResponse;
 }

@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -30,7 +31,11 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool, dir string) error {
 		if err != nil {
 			return fmt.Errorf("read %s: %w", f, err)
 		}
-		if _, err := pool.Exec(ctx, string(content)); err != nil {
+
+		// Execute SQL with simple protocol (no prepared statements)
+		sql := string(content)
+		_, err = pool.Exec(ctx, sql, pgx.QueryExecModeSimpleProtocol)
+		if err != nil {
 			return fmt.Errorf("exec %s: %w", f, err)
 		}
 		fmt.Printf("Applied migration: %s\n", f)

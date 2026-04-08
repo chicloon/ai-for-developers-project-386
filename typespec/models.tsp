@@ -1,37 +1,121 @@
-using Http;
-using Rest;
-
 namespace CallBooking;
 
-model TimeRange {
+// Common response model
+model ErrorResponse {
+  error: string;
+}
+
+// User models
+model User {
+  id: string;
+  email: string;
+  name: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+model RegisterRequest {
+  email: string;
+  password: string;
+  name: string;
+}
+
+model LoginRequest {
+  email: string;
+  password: string;
+}
+
+model AuthResponse {
+  token: string;
+  user: User;
+}
+
+// Schedule models (replaces AvailabilityRule)
+model Schedule {
+  id: string;
+  userId: string;
+  type: "recurring" | "one-time";
+  dayOfWeek?: int32;
+  date?: string;
   startTime: string;
   endTime: string;
+  isBlocked: boolean;
+  createdAt?: string;
 }
 
-model AvailabilityRule {
-  id: string;
+model CreateScheduleRequest {
   type: "recurring" | "one-time";
   dayOfWeek?: int32;
   date?: string;
-  timeRanges: TimeRange[];
+  startTime: string;
+  endTime: string;
+  isBlocked?: boolean;
 }
 
-model CreateAvailabilityRule {
-  type: "recurring" | "one-time";
-  dayOfWeek?: int32;
-  date?: string;
-  timeRanges: TimeRange[];
+model SchedulesListResponse {
+  schedules: Schedule[];
 }
 
-model BlockedDay {
+// Visibility Group models
+model VisibilityGroup {
   id: string;
-  date: string;
+  ownerId: string;
+  name: string;
+  visibilityLevel: "family" | "work" | "friends" | "public";
+  createdAt?: string;
 }
 
-model CreateBlockedDay {
-  date: string;
+model CreateGroupRequest {
+  name: string;
+  visibilityLevel: "family" | "work" | "friends" | "public";
 }
 
+model GroupsListResponse {
+  groups: VisibilityGroup[];
+}
+
+// Group Member models
+model GroupMember {
+  id: string;
+  groupId: string;
+  member: User;
+  addedBy: string;
+  addedAt: string;
+}
+
+model AddMemberRequest {
+  email?: string;
+  userId?: string;
+}
+
+model MembersListResponse {
+  members: GroupMember[];
+}
+
+// Booking models
+model Booking {
+  id: string;
+  scheduleId: string;
+  booker: User;
+  owner: User;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: "active" | "cancelled";
+  createdAt?: string;
+  cancelledAt?: string;
+}
+
+model CreateBookingRequest {
+  ownerId: string;
+  scheduleId: string;
+}
+
+model BookingsListResponse {
+  bookings: Booking[];
+}
+
+// Slot model for public display
 model Slot {
   id: string;
   date: string;
@@ -40,28 +124,11 @@ model Slot {
   isBooked: boolean;
 }
 
-model Booking {
-  id: string;
-  slotDate: string;
-  slotStartTime: string;
-  name: string;
-  email: string;
-  status: "active" | "cancelled";
-  recurrence?: "none" | "daily" | "weekly" | "yearly";
-  dayOfWeek?: int32;
-  endDate?: string;
+model SlotsListResponse {
+  slots: Slot[];
 }
 
-model CreateBooking {
-  slotDate: string;
-  slotStartTime: string;
-  name: string;
-  email: string;
-  recurrence?: "none" | "daily" | "weekly" | "yearly";
-  dayOfWeek?: int32;
-  endDate?: string;
-}
-
-model ErrorResponse {
-  error: string;
+// Users list response
+model UsersListResponse {
+  users: User[];
 }

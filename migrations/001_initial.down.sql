@@ -1,3 +1,5 @@
 DROP TABLE IF EXISTS bookings;
-DROP TABLE IF EXISTS blocked_days;
-DROP TABLE IF EXISTS availability_rules;
+DROP TABLE IF EXISTS schedules;
+DROP TABLE IF EXISTS group_members;
+DROP TABLE IF EXISTS visibility_groups;
+DROP TABLE IF EXISTS users;

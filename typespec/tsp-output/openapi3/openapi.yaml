@@ -4,9 +4,28 @@ info:
   version: 0.0.0
 tags: []
 paths:
-  /api/availability-rules:
+  /api/auth/login:
+    post:
+      operationId: Auth_login
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/AuthResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+  /api/auth/me:
     get:
-      operationId: AvailabilityRules_list
+      operationId: Auth_me
       parameters: []
       responses:
         '200':
@@ -15,12 +34,11 @@ paths:
             application/json:
               schema:
                 anyOf:
-                  - type: array
-                    items:
-                      $ref: '#/components/schemas/AvailabilityRule'
+                  - $ref: '#/components/schemas/User'
                   - $ref: '#/components/schemas/ErrorResponse'
+  /api/auth/register:
     post:
-      operationId: AvailabilityRules_create
+      operationId: Auth_register
       parameters: []
       responses:
         '200':
@@ -34,57 +52,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AvailabilityRule'
+                $ref: '#/components/schemas/AuthResponse'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateAvailabilityRule'
-  /api/availability-rules/{id}:
-    put:
-      operationId: AvailabilityRules_update
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                anyOf:
-                  - $ref: '#/components/schemas/AvailabilityRule'
-                  - $ref: '#/components/schemas/ErrorResponse'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateAvailabilityRule'
-    delete:
-      operationId: AvailabilityRules_delete
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '204':
-          description: 'There is no content to send for this request, but the headers may be useful. '
-  /api/blocked-days:
-    post:
-      operationId: BlockedDays_create
+              $ref: '#/components/schemas/RegisterRequest'
+  /api/my/bookings:
+    get:
+      operationId: Bookings_list
       parameters: []
       responses:
         '200':
@@ -92,38 +69,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '201':
-          description: The request has succeeded and a new resource has been created as a result.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BlockedDay'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateBlockedDay'
-  /api/blocked-days/{id}:
-    delete:
-      operationId: BlockedDays_delete
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '204':
-          description: 'There is no content to send for this request, but the headers may be useful. '
-  /api/bookings:
+                anyOf:
+                  - $ref: '#/components/schemas/BookingsListResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
     post:
       operationId: Bookings_create
       parameters: []
@@ -145,24 +93,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateBooking'
-    get:
-      operationId: Bookings_list
-      parameters: []
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                anyOf:
-                  - type: array
-                    items:
-                      $ref: '#/components/schemas/Booking'
-                  - $ref: '#/components/schemas/ErrorResponse'
-  /api/bookings/{id}:
+              $ref: '#/components/schemas/CreateBookingRequest'
+  /api/my/bookings/{id}:
     delete:
-      operationId: Bookings_delete
+      operationId: Bookings_cancel
       parameters:
         - name: id
           in: path
@@ -178,10 +112,266 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '204':
           description: 'There is no content to send for this request, but the headers may be useful. '
-  /api/slots:
+  /api/my/groups:
     get:
-      operationId: Slots_list
+      operationId: Groups_list
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/GroupsListResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: Groups_create
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisibilityGroup'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupRequest'
+  /api/my/groups/{id}:
+    put:
+      operationId: Groups_update
       parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/VisibilityGroup'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupRequest'
+    delete:
+      operationId: Groups_delete
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+  /api/my/groups/{id}/members:
+    get:
+      operationId: Groups_listMembers
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/MembersListResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: Groups_addMember
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupMember'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddMemberRequest'
+  /api/my/groups/{id}/members/{memberId}:
+    delete:
+      operationId: Groups_removeMember
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+  /api/my/schedules:
+    get:
+      operationId: Schedules_list
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/SchedulesListResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: Schedules_create
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScheduleRequest'
+  /api/my/schedules/{id}:
+    put:
+      operationId: Schedules_update
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Schedule'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScheduleRequest'
+    delete:
+      operationId: Schedules_delete
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+  /api/users:
+    get:
+      operationId: Users_list
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/UsersListResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /api/users/{id}:
+    get:
+      operationId: Users_get
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/User'
+                  - $ref: '#/components/schemas/ErrorResponse'
+  /api/users/{id}/slots:
+    get:
+      operationId: Users_slots
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
         - name: date
           in: query
           required: true
@@ -195,87 +385,102 @@ paths:
             application/json:
               schema:
                 anyOf:
-                  - type: array
-                    items:
-                      $ref: '#/components/schemas/Slot'
+                  - $ref: '#/components/schemas/SlotsListResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
-    AvailabilityRule:
+    AddMemberRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        userId:
+          type: string
+    AuthResponse:
       type: object
       required:
-        - id
-        - type
-        - timeRanges
+        - token
+        - user
       properties:
-        id:
+        token:
           type: string
-        type:
-          type: string
-          enum:
-            - recurring
-            - one-time
-        dayOfWeek:
-          type: integer
-          format: int32
-        date:
-          type: string
-        timeRanges:
-          type: array
-          items:
-            $ref: '#/components/schemas/TimeRange'
-    BlockedDay:
-      type: object
-      required:
-        - id
-        - date
-      properties:
-        id:
-          type: string
-        date:
-          type: string
+        user:
+          $ref: '#/components/schemas/User'
     Booking:
       type: object
       required:
         - id
-        - slotDate
-        - slotStartTime
-        - name
-        - email
+        - scheduleId
+        - booker
+        - owner
+        - date
+        - startTime
+        - endTime
         - status
       properties:
         id:
           type: string
-        slotDate:
+        scheduleId:
           type: string
-        slotStartTime:
+        booker:
+          $ref: '#/components/schemas/User'
+        owner:
+          $ref: '#/components/schemas/User'
+        date:
           type: string
-        name:
+        startTime:
           type: string
-        email:
+        endTime:
           type: string
         status:
           type: string
           enum:
             - active
             - cancelled
-        recurrence:
+        createdAt:
+          type: string
+        cancelledAt:
+          type: string
+    BookingsListResponse:
+      type: object
+      required:
+        - bookings
+      properties:
+        bookings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Booking'
+    CreateBookingRequest:
+      type: object
+      required:
+        - ownerId
+        - scheduleId
+      properties:
+        ownerId:
+          type: string
+        scheduleId:
+          type: string
+    CreateGroupRequest:
+      type: object
+      required:
+        - name
+        - visibilityLevel
+      properties:
+        name:
+          type: string
+        visibilityLevel:
           type: string
           enum:
-            - none
-            - daily
-            - weekly
-            - yearly
-        dayOfWeek:
-          type: integer
-          format: int32
-        endDate:
-          type: string
-    CreateAvailabilityRule:
+            - family
+            - work
+            - friends
+            - public
+    CreateScheduleRequest:
       type: object
       required:
         - type
-        - timeRanges
+        - startTime
+        - endTime
       properties:
         type:
           type: string
@@ -287,45 +492,12 @@ components:
           format: int32
         date:
           type: string
-        timeRanges:
-          type: array
-          items:
-            $ref: '#/components/schemas/TimeRange'
-    CreateBlockedDay:
-      type: object
-      required:
-        - date
-      properties:
-        date:
+        startTime:
           type: string
-    CreateBooking:
-      type: object
-      required:
-        - slotDate
-        - slotStartTime
-        - name
-        - email
-      properties:
-        slotDate:
+        endTime:
           type: string
-        slotStartTime:
-          type: string
-        name:
-          type: string
-        email:
-          type: string
-        recurrence:
-          type: string
-          enum:
-            - none
-            - daily
-            - weekly
-            - yearly
-        dayOfWeek:
-          type: integer
-          format: int32
-        endDate:
-          type: string
+        isBlocked:
+          type: boolean
     ErrorResponse:
       type: object
       required:
@@ -333,6 +505,107 @@ components:
       properties:
         error:
           type: string
+    GroupMember:
+      type: object
+      required:
+        - id
+        - groupId
+        - member
+        - addedBy
+        - addedAt
+      properties:
+        id:
+          type: string
+        groupId:
+          type: string
+        member:
+          $ref: '#/components/schemas/User'
+        addedBy:
+          type: string
+        addedAt:
+          type: string
+    GroupsListResponse:
+      type: object
+      required:
+        - groups
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/VisibilityGroup'
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+    MembersListResponse:
+      type: object
+      required:
+        - members
+      properties:
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupMember'
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - name
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+        name:
+          type: string
+    Schedule:
+      type: object
+      required:
+        - id
+        - userId
+        - type
+        - startTime
+        - endTime
+        - isBlocked
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        type:
+          type: string
+          enum:
+            - recurring
+            - one-time
+        dayOfWeek:
+          type: integer
+          format: int32
+        date:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        isBlocked:
+          type: boolean
+        createdAt:
+          type: string
+    SchedulesListResponse:
+      type: object
+      required:
+        - schedules
+      properties:
+        schedules:
+          type: array
+          items:
+            $ref: '#/components/schemas/Schedule'
     Slot:
       type: object
       required:
@@ -352,15 +625,63 @@ components:
           type: string
         isBooked:
           type: boolean
-    TimeRange:
+    SlotsListResponse:
       type: object
       required:
-        - startTime
-        - endTime
+        - slots
       properties:
-        startTime:
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - name
+      properties:
+        id:
           type: string
-        endTime:
+        email:
+          type: string
+        name:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+    UsersListResponse:
+      type: object
+      required:
+        - users
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+    VisibilityGroup:
+      type: object
+      required:
+        - id
+        - ownerId
+        - name
+        - visibilityLevel
+      properties:
+        id:
+          type: string
+        ownerId:
+          type: string
+        name:
+          type: string
+        visibilityLevel:
+          type: string
+          enum:
+            - family
+            - work
+            - friends
+            - public
+        createdAt:
           type: string
 servers:
   - url: http://localhost:8080

@@ -7,14 +7,8 @@ import (
 	"call-booking/internal/models"
 )
 
-func GenerateSlots(rules []models.AvailabilityRule, blockedDays []models.BlockedDay, bookings []models.Booking, date string) []models.Slot {
-	// Check if day is blocked
-	for _, bd := range blockedDays {
-		if bd.Date == date {
-			return []models.Slot{}
-		}
-	}
-
+// GenerateSlots generates available time slots from schedules and bookings
+func GenerateSlots(schedules []models.Schedule, bookings []models.Booking, date string) []models.Slot {
 	// Parse the date to get day of week
 	t, err := time.Parse("2006-01-02", date)
 	if err != nil {
@@ -22,31 +16,38 @@ func GenerateSlots(rules []models.AvailabilityRule, blockedDays []models.Blocked
 	}
 	dayOfWeek := int32(t.Weekday()) // 0=Sunday
 
-	// Collect matching rules
-	var matchingRules []models.AvailabilityRule
-	for _, rule := range rules {
-		if rule.Type == "recurring" && rule.DayOfWeek != nil && *rule.DayOfWeek == dayOfWeek {
-			matchingRules = append(matchingRules, rule)
+	// Filter schedules for this date
+	var matchingSchedules []models.Schedule
+	for _, schedule := range schedules {
+		// Skip blocked schedules
+		if schedule.IsBlocked {
+			continue
 		}
-		if rule.Type == "one-time" && rule.Date != nil && *rule.Date == date {
-			matchingRules = append(matchingRules, rule)
+
+		// Check if schedule matches the date
+		if schedule.Type == "recurring" && schedule.DayOfWeek != nil && *schedule.DayOfWeek == dayOfWeek {
+			matchingSchedules = append(matchingSchedules, schedule)
+		}
+		if schedule.Type == "one-time" && schedule.Date != nil && *schedule.Date == date {
+			matchingSchedules = append(matchingSchedules, schedule)
 		}
 	}
 
-	// Default to 9:00-18:00 if no rules
-	if len(matchingRules) == 0 {
-		defaultRule := models.AvailabilityRule{
-			TimeRanges: []models.TimeRange{
-				{StartTime: "09:00", EndTime: "18:00"},
-			},
+	// Default to 9:00-18:00 if no schedules
+	if len(matchingSchedules) == 0 {
+		defaultSchedule := models.Schedule{
+			Type:      "recurring",
+			DayOfWeek: &dayOfWeek,
+			StartTime: "09:00",
+			EndTime:   "18:00",
 		}
-		matchingRules = append(matchingRules, defaultRule)
+		matchingSchedules = append(matchingSchedules, defaultSchedule)
 	}
 
-	// Generate slots from rules
+	// Generate slots from schedules
 	var slots []models.Slot
-	for _, rule := range matchingRules {
-		slots = append(slots, generateSlotsFromRule(rule, date)...)
+	for _, schedule := range matchingSchedules {
+		slots = append(slots, generateSlotsFromSchedule(schedule, date)...)
 	}
 
 	// Mark booked slots
@@ -65,26 +66,24 @@ func GenerateSlots(rules []models.AvailabilityRule, blockedDays []models.Blocked
 	return slots
 }
 
-func generateSlotsFromRule(rule models.AvailabilityRule, date string) []models.Slot {
+func generateSlotsFromSchedule(schedule models.Schedule, date string) []models.Slot {
 	var slots []models.Slot
 
-	for _, tr := range rule.TimeRanges {
-		current := tr.StartTime
-		for current < tr.EndTime {
-			end := addMinutes(current, 30)
-			if end > tr.EndTime {
-				break
-			}
-			slot := models.Slot{
-				ID:        fmt.Sprintf("%s_%s", date, current),
-				Date:      date,
-				StartTime: current,
-				EndTime:   end,
-				IsBooked:  false,
-			}
-			slots = append(slots, slot)
-			current = end
+	current := schedule.StartTime
+	for current < schedule.EndTime {
+		end := addMinutes(current, 30)
+		if end > schedule.EndTime {
+			break
 		}
+		slot := models.Slot{
+			ID:        fmt.Sprintf("%s_%s_%s", schedule.ID, date, current),
+			Date:      date,
+			StartTime: current,
+			EndTime:   end,
+			IsBooked:  false,
+		}
+		slots = append(slots, slot)
+		current = end
 	}
 
 	return slots
@@ -97,52 +96,5 @@ func addMinutes(t string, minutes int) string {
 }
 
 func isSlotBooked(slot models.Slot, booking models.Booking, date string) bool {
-	if booking.SlotDate != date || booking.SlotStartTime != slot.StartTime {
-		return false
-	}
-
-	rec := "none"
-	if booking.Recurrence != nil {
-		rec = *booking.Recurrence
-	}
-
-	switch rec {
-	case "none":
-		return true
-	case "daily":
-		if booking.EndDate == nil {
-			return true
-		}
-		return date <= *booking.EndDate
-	case "weekly":
-		if booking.DayOfWeek == nil {
-			return false
-		}
-		t, err := time.Parse("2006-01-02", date)
-		if err != nil {
-			return false
-		}
-		if int32(t.Weekday()) != *booking.DayOfWeek {
-			return false
-		}
-		if booking.EndDate != nil && date > *booking.EndDate {
-			return false
-		}
-		return true
-	case "yearly":
-		t, err := time.Parse("2006-01-02", date)
-		if err != nil {
-			return false
-		}
-		bookingDate, _ := time.Parse("2006-01-02", booking.SlotDate)
-		if t.Month() != bookingDate.Month() || t.Day() != bookingDate.Day() {
-			return false
-		}
-		if booking.EndDate != nil && date > *booking.EndDate {
-			return false
-		}
-		return true
-	default:
-		return false
-	}
+	return booking.Date == date && booking.StartTime == slot.StartTime
 }
