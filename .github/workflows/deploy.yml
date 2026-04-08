@@ -71,8 +71,8 @@ jobs:
             echo "=== Remove old images ==="
             docker rmi -f ghcr.io/chicloon/ai-for-developers-project-386/api:latest ghcr.io/chicloon/ai-for-developers-project-386/web:latest 2>/dev/null || true
             echo "=== Pull and recreate ==="
-            docker compose pull
-            docker compose up -d --force-recreate
+            docker compose pull --policy always
+            docker compose up -d --force-recreate --pull always
             echo "=== Cleanup Docker ==="
             docker builder prune -f
             docker image prune -a -f
