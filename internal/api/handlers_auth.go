@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"call-booking/internal/auth"
@@ -87,26 +86,14 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
-	// #region agent log - login start
-	log.Printf("[LOGIN] Request received")
-	// #endregion
-
 	var req models.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		// #region agent log - decode error
-		log.Printf("[LOGIN] JSON decode error: %v", err)
-		// #endregion
 		jsonError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	// #region agent log - parsed
-	log.Printf("[LOGIN] Parsed email=%s", req.Email)
-	// #endregion
-
 	// Validate input
 	if req.Email == "" || req.Password == "" {
-		log.Printf("[LOGIN] Missing email or password")
 		jsonError(w, http.StatusBadRequest, "email and password are required")
 		return
 	}
@@ -114,17 +101,11 @@ func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
 	// Find user
 	var user models.User
 	var passwordHash string
-	// #region agent log - query start
-	log.Printf("[LOGIN] Querying user from DB: %s", req.Email)
-	// #endregion
 	err := h.pool.QueryRow(r.Context(),
 		"SELECT id, email, name, password_hash, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') FROM users WHERE email = $1",
 		req.Email).
 		Scan(&user.ID, &user.Email, &user.Name, &passwordHash, &user.CreatedAt)
 	if err != nil {
-		// #region agent log - query error
-		log.Printf("[LOGIN] DB query error: %v", err)
-		// #endregion
 		if err == pgx.ErrNoRows {
 			// Run dummy bcrypt to prevent timing attacks
 			auth.CheckPassword("dummy", "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy")
@@ -135,36 +116,18 @@ func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// #region agent log - user found
-	log.Printf("[LOGIN] User found: %s", user.ID)
-	// #endregion
-
 	// Check password
-	// #region agent log - checking password
-	log.Printf("[LOGIN] Checking password...")
-	// #endregion
 	if !auth.CheckPassword(req.Password, passwordHash) {
-		log.Printf("[LOGIN] Password mismatch")
 		jsonError(w, http.StatusUnauthorized, "invalid email or password")
 		return
 	}
 
 	// Generate token
-	// #region agent log - generating token
-	log.Printf("[LOGIN] Generating token...")
-	// #endregion
 	token, err := auth.GenerateToken(user.ID, user.Email)
 	if err != nil {
-		// #region agent log - token error
-		log.Printf("[LOGIN] Token generation error: %v", err)
-		// #endregion
 		jsonError(w, http.StatusInternalServerError, "failed to generate token")
 		return
 	}
-
-	// #region agent log - success
-	log.Printf("[LOGIN] Success for user: %s", user.ID)
-	// #endregion
 
 	jsonResponse(w, http.StatusOK, models.AuthResponse{
 		Token: token,

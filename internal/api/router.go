@@ -37,11 +37,10 @@ func NewRouter(pool *pgxpool.Pool) *chi.Mux {
 		MaxAge:           300,
 	}))
 
-	// #region agent log - health check endpoint
+	// Health check endpoint
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		jsonResponse(w, http.StatusOK, map[string]string{"status": "ok", "service": "api"})
 	})
-	// #endregion
 
 	// Public routes (no JWT required)
 	r.Mount("/api/auth", authRouter(pool))
