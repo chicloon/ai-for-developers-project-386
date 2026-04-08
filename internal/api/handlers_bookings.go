@@ -3,10 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"os"
-	"time"
 
 	"call-booking/internal/auth"
 	"call-booking/internal/models"
@@ -94,52 +91,26 @@ func (h *bookingsHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// #region agent log
-	// Debug logging for booking creation
-	go func() {
-		f, _ := os.OpenFile("/home/user/git/ai-for-developers-project-386/.cursor/debug-5ccf59.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if f != nil {
-			defer f.Close()
-			logLine := fmt.Sprintf(`{"id":"log_%d","timestamp":%d,"location":"handlers_bookings.go:85","message":"Booking create request","data":{"scheduleId":"%s","slotStartTime":"%s","ownerId":"%s","userId":"%s"},"hypothesisId":"H1"}`+"\n",
-				time.Now().UnixNano(), time.Now().UnixMilli(), req.ScheduleID, req.SlotStartTime, req.OwnerID, userID)
-			f.WriteString(logLine)
-		}
-	}()
-	// #endregion
-
-	// Check if user can see the owner
-	canSee, err := h.canSeeUser(r.Context(), userID, req.OwnerID)
+	// Check if user can see the owner and can book this specific schedule
+	canBook, err := h.canBookSchedule(r.Context(), userID, req.OwnerID, req.ScheduleID)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if !canSee {
-		jsonError(w, http.StatusForbidden, "you don't have access to this user")
+	if !canBook {
+		jsonError(w, http.StatusForbidden, "you don't have access to book this schedule")
 		return
 	}
 
-	// Check if slot is already booked for this specific date
+	// Check if slot is already booked for this specific date and time
 	var exists bool
 	err = h.pool.QueryRow(r.Context(),
-		"SELECT EXISTS(SELECT 1 FROM bookings WHERE schedule_id = $1 AND slot_date = $2 AND status = 'active')",
-		req.ScheduleID, req.SlotDate).Scan(&exists)
+		"SELECT EXISTS(SELECT 1 FROM bookings WHERE schedule_id = $1 AND slot_date = $2 AND slot_start_time = $3 AND status = 'active')",
+		req.ScheduleID, req.SlotDate, req.SlotStartTime).Scan(&exists)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-
-	// #region agent log
-	// Debug logging for existing booking check
-	go func(existsVal bool) {
-		f, _ := os.OpenFile("/home/user/git/ai-for-developers-project-386/.cursor/debug-5ccf59.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if f != nil {
-			defer f.Close()
-			logLine := fmt.Sprintf(`{"id":"log_%d","timestamp":%d,"location":"handlers_bookings.go:120","message":"Booking existence check","data":{"scheduleId":"%s","exists":%t},"hypothesisId":"H1"}`+"\n",
-				time.Now().UnixNano(), time.Now().UnixMilli(), req.ScheduleID, existsVal)
-			f.WriteString(logLine)
-		}
-	}(exists)
-	// #endregion
 
 	if exists {
 		jsonError(w, http.StatusConflict, "this slot is already booked")
@@ -209,21 +180,57 @@ func (h *bookingsHandler) cancel(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// canSeeUser checks if current user can see target user
-func (h *bookingsHandler) canSeeUser(ctx context.Context, currentUserID, targetUserID string) (bool, error) {
-	if currentUserID == targetUserID {
+// canBookSchedule checks if current user can book a specific schedule
+// Logic:
+// - If schedule has no group associations: visible if owner is public OR user is self
+// - If schedule has group associations: visible if user is member of at least one group OR user is self
+func (h *bookingsHandler) canBookSchedule(ctx context.Context, currentUserID, ownerID, scheduleID string) (bool, error) {
+	if currentUserID == ownerID {
 		return true, nil
 	}
 
-	var visible bool
+	// Get schedule's group associations
+	rows, err := h.pool.Query(ctx,
+		"SELECT group_id FROM schedule_visibility_groups WHERE schedule_id = $1",
+		scheduleID)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	var groupIDs []string
+	for rows.Next() {
+		var gid string
+		if err := rows.Scan(&gid); err != nil {
+			continue
+		}
+		groupIDs = append(groupIDs, gid)
+	}
+
+	// If schedule has no groups - check if owner is public
+	if len(groupIDs) == 0 {
+		var isPublic bool
+		err := h.pool.QueryRow(ctx,
+			"SELECT is_public FROM users WHERE id = $1",
+			ownerID).Scan(&isPublic)
+		if err != nil {
+			return false, err
+		}
+		return isPublic, nil
+	}
+
+	// Schedule has groups - check if user is member of any group
+	// Note: groups belong to the owner, so we need to check if current user is in any of the owner's groups
 	query := `
 		SELECT EXISTS (
-			SELECT 1 FROM visibility_groups vg
-			LEFT JOIN group_members gm ON gm.group_id = vg.id AND gm.member_id = $1
-			WHERE vg.owner_id = $2
-			  AND (vg.visibility_level = 'public' OR gm.member_id IS NOT NULL)
+			SELECT 1 FROM group_members gm
+			JOIN visibility_groups vg ON vg.id = gm.group_id
+			WHERE vg.owner_id = $1
+			  AND gm.member_id = $2
+			  AND gm.group_id = ANY($3)
 		)
 	`
-	err := h.pool.QueryRow(ctx, query, currentUserID, targetUserID).Scan(&visible)
-	return visible, err
+	var isMember bool
+	err = h.pool.QueryRow(ctx, query, ownerID, currentUserID, groupIDs).Scan(&isMember)
+	return isMember, err
 }

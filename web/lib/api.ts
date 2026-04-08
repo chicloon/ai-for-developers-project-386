@@ -5,8 +5,14 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  isPublic: boolean;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface UpdateUserRequest {
+  name?: string;
+  isPublic?: boolean;
 }
 
 export interface RegisterRequest {
@@ -35,6 +41,7 @@ export interface Schedule {
   startTime: string;
   endTime: string;
   isBlocked: boolean;
+  groupIds?: string[];
   createdAt?: string;
 }
 
@@ -45,24 +52,20 @@ export interface CreateScheduleRequest {
   startTime: string;
   endTime: string;
   isBlocked?: boolean;
+  groupIds?: string[];
 }
 
 export interface SchedulesListResponse {
   schedules: Schedule[];
 }
 
-// Visibility Group types
+// Visibility Group types (fixed groups: Family, Work, Friends)
 export interface VisibilityGroup {
   id: string;
   ownerId: string;
   name: string;
-  visibilityLevel: "family" | "work" | "friends" | "public";
+  visibilityLevel: "family" | "work" | "friends";
   createdAt?: string;
-}
-
-export interface CreateGroupRequest {
-  name: string;
-  visibilityLevel: "family" | "work" | "friends" | "public";
 }
 
 export interface GroupsListResponse {
@@ -230,6 +233,16 @@ export async function getUserSlots(
   return res.json();
 }
 
+export async function updateMe(data: UpdateUserRequest): Promise<User> {
+  const res = await authFetch("/api/users/me", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to update profile");
+  return res.json();
+}
+
 // Schedules API
 export async function getMySchedules(): Promise<SchedulesListResponse> {
   const res = await authFetch("/api/my/schedules");
@@ -269,43 +282,11 @@ export async function deleteSchedule(id: string): Promise<void> {
   if (!res.ok) throw new Error("Failed to delete schedule");
 }
 
-// Groups API
+// Groups API (fixed groups - only member management)
 export async function getMyGroups(): Promise<GroupsListResponse> {
   const res = await authFetch("/api/my/groups");
   if (!res.ok) throw new Error("Failed to fetch groups");
   return res.json();
-}
-
-export async function createGroup(
-  data: CreateGroupRequest
-): Promise<VisibilityGroup> {
-  const res = await authFetch("/api/my/groups", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error("Failed to create group");
-  return res.json();
-}
-
-export async function updateGroup(
-  id: string,
-  data: CreateGroupRequest
-): Promise<VisibilityGroup> {
-  const res = await authFetch(`/api/my/groups/${encodeURIComponent(id)}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error("Failed to update group");
-  return res.json();
-}
-
-export async function deleteGroup(id: string): Promise<void> {
-  const res = await authFetch(`/api/my/groups/${encodeURIComponent(id)}`, {
-    method: "DELETE",
-  });
-  if (!res.ok) throw new Error("Failed to delete group");
 }
 
 export async function getGroupMembers(

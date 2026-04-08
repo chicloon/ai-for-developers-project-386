@@ -125,69 +125,6 @@ paths:
                 anyOf:
                   - $ref: '#/components/schemas/GroupsListResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
-    post:
-      operationId: Groups_create
-      parameters: []
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '201':
-          description: The request has succeeded and a new resource has been created as a result.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VisibilityGroup'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateGroupRequest'
-  /api/my/groups/{id}:
-    put:
-      operationId: Groups_update
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                anyOf:
-                  - $ref: '#/components/schemas/VisibilityGroup'
-                  - $ref: '#/components/schemas/ErrorResponse'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateGroupRequest'
-    delete:
-      operationId: Groups_delete
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: The request has succeeded.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '204':
-          description: 'There is no content to send for this request, but the headers may be useful. '
   /api/my/groups/{id}/members:
     get:
       operationId: Groups_listMembers
@@ -345,6 +282,25 @@ paths:
                 anyOf:
                   - $ref: '#/components/schemas/UsersListResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
+  /api/users/me:
+    put:
+      operationId: Users_updateMe
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/User'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
   /api/users/{id}:
     get:
       operationId: Users_get
@@ -460,21 +416,6 @@ components:
           type: string
         scheduleId:
           type: string
-    CreateGroupRequest:
-      type: object
-      required:
-        - name
-        - visibilityLevel
-      properties:
-        name:
-          type: string
-        visibilityLevel:
-          type: string
-          enum:
-            - family
-            - work
-            - friends
-            - public
     CreateScheduleRequest:
       type: object
       required:
@@ -498,6 +439,10 @@ components:
           type: string
         isBlocked:
           type: boolean
+        groupIds:
+          type: array
+          items:
+            type: string
     ErrorResponse:
       type: object
       required:
@@ -595,6 +540,10 @@ components:
           type: string
         isBlocked:
           type: boolean
+        groupIds:
+          type: array
+          items:
+            type: string
         createdAt:
           type: string
     SchedulesListResponse:
@@ -634,12 +583,20 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Slot'
+    UpdateUserRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        isPublic:
+          type: boolean
     User:
       type: object
       required:
         - id
         - email
         - name
+        - isPublic
       properties:
         id:
           type: string
@@ -647,6 +604,8 @@ components:
           type: string
         name:
           type: string
+        isPublic:
+          type: boolean
         createdAt:
           type: string
         updatedAt:
@@ -680,7 +639,6 @@ components:
             - family
             - work
             - friends
-            - public
         createdAt:
           type: string
 servers:

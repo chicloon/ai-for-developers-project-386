@@ -10,6 +10,7 @@ type User struct {
 	ID           string `json:"id"`
 	Email        string `json:"email"`
 	Name         string `json:"name"`
+	IsPublic     bool   `json:"isPublic"`
 	PasswordHash string `json:"-"` // never expose in JSON
 	CreatedAt    string `json:"createdAt,omitempty"`
 	UpdatedAt    string `json:"updatedAt,omitempty"`
@@ -35,24 +36,26 @@ type AuthResponse struct {
 
 // Schedule represents user's availability (replaces AvailabilityRule)
 type Schedule struct {
-	ID        string  `json:"id"`
-	UserID    string  `json:"userId"`
-	Type      string  `json:"type"`
-	DayOfWeek *int32  `json:"dayOfWeek,omitempty"`
-	Date      *string `json:"date,omitempty"`
-	StartTime string  `json:"startTime"`
-	EndTime   string  `json:"endTime"`
-	IsBlocked bool    `json:"isBlocked"`
-	CreatedAt string  `json:"createdAt,omitempty"`
+	ID        string   `json:"id"`
+	UserID    string   `json:"userId"`
+	Type      string   `json:"type"`
+	DayOfWeek *int32   `json:"dayOfWeek,omitempty"`
+	Date      *string  `json:"date,omitempty"`
+	StartTime string   `json:"startTime"`
+	EndTime   string   `json:"endTime"`
+	IsBlocked bool     `json:"isBlocked"`
+	GroupIDs  []string `json:"groupIds,omitempty"`
+	CreatedAt string   `json:"createdAt,omitempty"`
 }
 
 type CreateScheduleRequest struct {
-	Type      string  `json:"type"`
-	DayOfWeek *int32  `json:"dayOfWeek,omitempty"`
-	Date      *string `json:"date,omitempty"`
-	StartTime string  `json:"startTime"`
-	EndTime   string  `json:"endTime"`
-	IsBlocked bool    `json:"isBlocked"`
+	Type      string   `json:"type"`
+	DayOfWeek *int32   `json:"dayOfWeek,omitempty"`
+	Date      *string  `json:"date,omitempty"`
+	StartTime string   `json:"startTime"`
+	EndTime   string   `json:"endTime"`
+	IsBlocked bool     `json:"isBlocked"`
+	GroupIDs  []string `json:"groupIds,omitempty"`
 }
 
 // VisibilityGroup for access control
@@ -64,9 +67,10 @@ type VisibilityGroup struct {
 	CreatedAt       string `json:"createdAt,omitempty"`
 }
 
-type CreateGroupRequest struct {
-	Name            string `json:"name"`
-	VisibilityLevel string `json:"visibilityLevel"`
+// UpdateUserRequest for updating current user profile
+type UpdateUserRequest struct {
+	IsPublic *bool   `json:"isPublic,omitempty"`
+	Name     *string `json:"name,omitempty"`
 }
 
 type AddMemberRequest struct {

@@ -10,8 +10,14 @@ model User {
   id: string;
   email: string;
   name: string;
+  isPublic: boolean;
   createdAt?: string;
   updatedAt?: string;
+}
+
+model UpdateUserRequest {
+  name?: string;
+  isPublic?: boolean;
 }
 
 model RegisterRequest {
@@ -40,6 +46,7 @@ model Schedule {
   startTime: string;
   endTime: string;
   isBlocked: boolean;
+  groupIds?: string[];
   createdAt?: string;
 }
 
@@ -50,6 +57,7 @@ model CreateScheduleRequest {
   startTime: string;
   endTime: string;
   isBlocked?: boolean;
+  groupIds?: string[];
 }
 
 model SchedulesListResponse {
@@ -57,17 +65,13 @@ model SchedulesListResponse {
 }
 
 // Visibility Group models
+// Groups are auto-created for each user: Family, Work, Friends
 model VisibilityGroup {
   id: string;
   ownerId: string;
   name: string;
-  visibilityLevel: "family" | "work" | "friends" | "public";
+  visibilityLevel: "family" | "work" | "friends";
   createdAt?: string;
-}
-
-model CreateGroupRequest {
-  name: string;
-  visibilityLevel: "family" | "work" | "friends" | "public";
 }
 
 model GroupsListResponse {

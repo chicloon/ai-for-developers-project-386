@@ -2,9 +2,9 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"call-booking/internal/auth"
@@ -35,12 +35,12 @@ func (h *usersHandler) list(w http.ResponseWriter, r *http.Request) {
 	currentUserID := auth.GetUserID(r.Context())
 
 	query := `
-		SELECT DISTINCT u.id, u.email, u.name FROM users u
+		SELECT DISTINCT u.id, u.email, u.name, u.is_public FROM users u
 		LEFT JOIN visibility_groups vg ON vg.owner_id = u.id
 		LEFT JOIN group_members gm ON gm.group_id = vg.id AND gm.member_id = $1
 		WHERE u.id != $1
 		  AND (
-			EXISTS (SELECT 1 FROM visibility_groups WHERE owner_id = u.id AND visibility_level = 'public')
+			u.is_public = true
 			OR gm.member_id IS NOT NULL
 		  )
 		ORDER BY u.name
@@ -56,7 +56,7 @@ func (h *usersHandler) list(w http.ResponseWriter, r *http.Request) {
 	var users []models.User
 	for rows.Next() {
 		var user models.User
-		if err := rows.Scan(&user.ID, &user.Email, &user.Name); err != nil {
+		if err := rows.Scan(&user.ID, &user.Email, &user.Name, &user.IsPublic); err != nil {
 			jsonError(w, http.StatusInternalServerError, "database error")
 			return
 		}
@@ -111,14 +111,76 @@ func (h *usersHandler) slots(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get schedules for the date
-	slots, err := h.getSlotsForDate(r.Context(), userID, date)
+	// Get schedules for the date with visibility filtering
+	slots, err := h.getSlotsForDate(r.Context(), currentUserID, userID, date)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "database error")
 		return
 	}
 
 	jsonResponse(w, http.StatusOK, map[string]interface{}{"slots": slots})
+}
+
+// updateMe updates the current user's profile
+func (h *usersHandler) updateMe(w http.ResponseWriter, r *http.Request) {
+	userID := auth.GetUserID(r.Context())
+
+	var req models.UpdateUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Build dynamic update query
+	var setFields []string
+	var args []interface{}
+	argIdx := 1
+
+	if req.Name != nil {
+		setFields = append(setFields, fmt.Sprintf("name = $%d", argIdx))
+		args = append(args, *req.Name)
+		argIdx++
+	}
+
+	if req.IsPublic != nil {
+		setFields = append(setFields, fmt.Sprintf("is_public = $%d", argIdx))
+		args = append(args, *req.IsPublic)
+		argIdx++
+	}
+
+	if len(setFields) == 0 {
+		jsonError(w, http.StatusBadRequest, "no fields to update")
+		return
+	}
+
+	// Add user ID as the last argument
+	args = append(args, userID)
+
+	query := fmt.Sprintf(
+		"UPDATE users SET %s, updated_at = NOW() WHERE id = $%d RETURNING id, email, name, is_public, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')",
+		joinStrings(setFields, ", "), argIdx)
+
+	var user models.User
+	err := h.pool.QueryRow(r.Context(), query, args...).
+		Scan(&user.ID, &user.Email, &user.Name, &user.IsPublic, &user.CreatedAt)
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, "database error")
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, user)
+}
+
+// joinStrings joins a slice of strings with a separator
+func joinStrings(strs []string, sep string) string {
+	if len(strs) == 0 {
+		return ""
+	}
+	result := strs[0]
+	for i := 1; i < len(strs); i++ {
+		result += sep + strs[i]
+	}
+	return result
 }
 
 // canSeeUser checks if current user can see target user
@@ -130,10 +192,11 @@ func (h *usersHandler) canSeeUser(ctx context.Context, currentUserID, targetUser
 	var visible bool
 	query := `
 		SELECT EXISTS (
-			SELECT 1 FROM visibility_groups vg
+			SELECT 1 FROM users u
+			LEFT JOIN visibility_groups vg ON vg.owner_id = u.id
 			LEFT JOIN group_members gm ON gm.group_id = vg.id AND gm.member_id = $1
-			WHERE vg.owner_id = $2
-			  AND (vg.visibility_level = 'public' OR gm.member_id IS NOT NULL)
+			WHERE u.id = $2
+			  AND (u.is_public = true OR gm.member_id IS NOT NULL)
 		)
 	`
 	err := h.pool.QueryRow(ctx, query, currentUserID, targetUserID).Scan(&visible)
@@ -143,20 +206,59 @@ func (h *usersHandler) canSeeUser(ctx context.Context, currentUserID, targetUser
 	return visible
 }
 
-// getSlotsForDate generates 30-min slots from schedules
-func (h *usersHandler) getSlotsForDate(ctx context.Context, userID, date string) ([]models.Slot, error) {
-	// Get schedules for the date
+// getSlotsForDate generates 30-min slots from schedules with visibility filtering
+func (h *usersHandler) getSlotsForDate(ctx context.Context, currentUserID, ownerID, date string) ([]models.Slot, error) {
+	// Check if owner is public
+	var isOwnerPublic bool
+	err := h.pool.QueryRow(ctx, "SELECT is_public FROM users WHERE id = $1", ownerID).Scan(&isOwnerPublic)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get user's group memberships with the owner
+	groupRows, err := h.pool.Query(ctx, `
+		SELECT vg.id 
+		FROM visibility_groups vg
+		JOIN group_members gm ON gm.group_id = vg.id
+		WHERE vg.owner_id = $1 AND gm.member_id = $2
+	`, ownerID, currentUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer groupRows.Close()
+
+	memberGroupIDs := make(map[string]bool)
+	for groupRows.Next() {
+		var gid string
+		if err := groupRows.Scan(&gid); err != nil {
+			continue
+		}
+		memberGroupIDs[gid] = true
+	}
+
+
+	// Get schedules for the date with visibility filtering
+	// A schedule is visible if:
+	// 1. It has no group associations (general schedule) AND user is member of at least one of owner's groups
+	// 2. It has group associations and current user is a member of at least one of those specific groups
+	// isPublic only affects catalog visibility (canSeeUser), not schedule visibility
 	rows, err := h.pool.Query(ctx, `
-		SELECT id, start_time, end_time, is_blocked 
-		FROM schedules 
-		WHERE user_id = $1 
+		SELECT s.id, s.start_time, s.end_time, s.is_blocked,
+			COALESCE(
+				ARRAY_AGG(svg.group_id) FILTER (WHERE svg.group_id IS NOT NULL),
+				ARRAY[]::UUID[]
+			) as group_ids
+		FROM schedules s
+		LEFT JOIN schedule_visibility_groups svg ON svg.schedule_id = s.id
+		WHERE s.user_id = $1 
 		  AND (
-			  (type = 'one-time' AND date = $2) 
+			  (s.type = 'one-time' AND s.date = $2) 
 			  OR 
-			  (type = 'recurring' AND day_of_week = EXTRACT(DOW FROM $2::date))
+			  (s.type = 'recurring' AND s.day_of_week = EXTRACT(DOW FROM $2::date))
 		  )
-		ORDER BY start_time
-	`, userID, date)
+		GROUP BY s.id, s.start_time, s.end_time, s.is_blocked
+		ORDER BY s.start_time
+	`, ownerID, date)
 	if err != nil {
 		return nil, err
 	}
@@ -167,15 +269,75 @@ func (h *usersHandler) getSlotsForDate(ctx context.Context, userID, date string)
 		startTime string
 		endTime   string
 		isBlocked bool
+		groupIDs  []string
 	}
 
-	var schedules []schedule
+	var allSchedules []schedule
+	var groupSchedules []schedule
+	var generalSchedules []schedule
+	
 	for rows.Next() {
 		var s schedule
-		if err := rows.Scan(&s.id, &s.startTime, &s.endTime, &s.isBlocked); err != nil {
+		var groupIDs []string
+		if err := rows.Scan(&s.id, &s.startTime, &s.endTime, &s.isBlocked, &groupIDs); err != nil {
 			return nil, err
 		}
-		schedules = append(schedules, s)
+		s.groupIDs = filterEmptyUUIDs(groupIDs)
+		allSchedules = append(allSchedules, s)
+		
+		// Separate into group and general schedules
+		if len(s.groupIDs) > 0 {
+			groupSchedules = append(groupSchedules, s)
+		} else {
+			generalSchedules = append(generalSchedules, s)
+		}
+	}
+	
+	// Build time ranges covered by ALL group schedules (for exclusion of general slots)
+	type timeRange struct {
+		start time.Time
+		end   time.Time
+	}
+	var groupTimeRanges []timeRange
+	for _, s := range groupSchedules {
+		if s.isBlocked {
+			continue
+		}
+		start, _ := time.Parse("15:04:05", s.startTime)
+		end, _ := time.Parse("15:04:05", s.endTime)
+		groupTimeRanges = append(groupTimeRanges, timeRange{start, end})
+	}
+
+	// Determine which schedules are visible to user
+	var visibleSchedules []schedule
+	
+	// Add group schedules that user has access to
+	for _, s := range groupSchedules {
+		if s.isBlocked {
+			continue
+		}
+		// Check if user is in any of this schedule's groups
+		hasAccess := false
+		for _, gid := range s.groupIDs {
+			if memberGroupIDs[gid] {
+				hasAccess = true
+				break
+			}
+		}
+		if hasAccess {
+			visibleSchedules = append(visibleSchedules, s)
+		}
+	}
+	
+	// Add general schedules (slots outside group time ranges)
+	// General schedules only visible if isPublic=true
+	if isOwnerPublic {
+		for _, s := range generalSchedules {
+			if s.isBlocked {
+				continue
+			}
+			visibleSchedules = append(visibleSchedules, s)
+		}
 	}
 
 	// Get booked slots - use slot_date to properly track bookings on recurring schedules
@@ -185,7 +347,7 @@ func (h *usersHandler) getSlotsForDate(ctx context.Context, userID, date string)
 		WHERE owner_id = $1
 		  AND slot_date = $2
 		  AND status = 'active'
-	`, userID, date)
+	`, ownerID, date)
 	if err != nil {
 		return nil, err
 	}
@@ -200,28 +362,11 @@ func (h *usersHandler) getSlotsForDate(ctx context.Context, userID, date string)
 		bookedTimes[startTime] = true
 	}
 
-	// #region agent log
-	// Debug logging for slot checking
-	go func(dateStr string, times map[string]bool) {
-		f, _ := os.OpenFile("/home/user/git/ai-for-developers-project-386/.cursor/debug-5ccf59.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if f != nil {
-			defer f.Close()
-			timesList := make([]string, 0, len(times))
-			for t := range times {
-				timesList = append(timesList, t)
-			}
-			logLine := fmt.Sprintf(`{"id":"log_%d","timestamp":%d,"location":"handlers_users.go:210","message":"Booked times for date","data":{"date":"%s","bookedTimes":%q},"hypothesisId":"H2"}`+"\n",
-				time.Now().UnixNano(), time.Now().UnixMilli(), dateStr, timesList)
-			f.WriteString(logLine)
-		}
-	}(date, bookedTimes)
-	// #endregion
-
 	// Generate 30-min slots
 	var slots []models.Slot
 	slotDuration := 30 * time.Minute
 
-	for _, s := range schedules {
+	for _, s := range visibleSchedules {
 		if s.isBlocked {
 			continue
 		}
@@ -242,6 +387,23 @@ func (h *usersHandler) getSlotsForDate(ctx context.Context, userID, date string)
 			}
 
 			slotStartStr := current.Format("15:04")
+			
+			// For general schedules (no groups), skip slots that fall within any group schedule time range
+			// This ensures group schedules have higher priority
+			isGeneralSchedule := len(s.groupIDs) == 0
+			if isGeneralSchedule {
+				skipSlot := false
+				for _, tr := range groupTimeRanges {
+					if current.Equal(tr.start) || current.After(tr.start) && current.Before(tr.end) {
+						skipSlot = true
+						break
+					}
+				}
+				if skipSlot {
+					continue
+				}
+			}
+			
 			slots = append(slots, models.Slot{
 				ID:        s.id + "_" + slotStartStr,
 				Date:      date,
