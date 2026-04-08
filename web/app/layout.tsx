@@ -13,10 +13,10 @@ const theme = createTheme({ primaryColor: "blue" });
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ru">
+    <html lang="ru" suppressHydrationWarning>
       <head><ColorSchemeScript /></head>
       <body>
-        <MantineProvider theme={theme}>
+        <MantineProvider theme={theme} defaultColorScheme="light">
           <AuthProvider>{children}</AuthProvider>
         </MantineProvider>
       </body>

@@ -3,7 +3,10 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
+	"time"
 
 	"call-booking/internal/auth"
 	"call-booking/internal/models"
@@ -33,10 +36,10 @@ func (h *bookingsHandler) list(w http.ResponseWriter, r *http.Request) {
 	userID := auth.GetUserID(r.Context())
 
 	query := `
-		SELECT b.id, b.schedule_id, 
+		SELECT b.id, b.schedule_id,
 		       bu.id, bu.email, bu.name,
 		       ou.id, ou.email, ou.name,
-		       s.date, s.start_time, s.end_time,
+		       CASE WHEN s.type = 'recurring' THEN '' ELSE TO_CHAR(s.date, 'YYYY-MM-DD') END, s.start_time, s.end_time,
 		       b.status, TO_CHAR(b.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), TO_CHAR(b.cancelled_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
 		FROM bookings b
 		JOIN users bu ON bu.id = b.booker_id
@@ -86,10 +89,23 @@ func (h *bookingsHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.OwnerID == "" || req.ScheduleID == "" {
-		jsonError(w, http.StatusBadRequest, "owner_id and schedule_id are required")
+	if req.OwnerID == "" || req.ScheduleID == "" || req.SlotDate == "" {
+		jsonError(w, http.StatusBadRequest, "owner_id, schedule_id and slot_date are required")
 		return
 	}
+
+	// #region agent log
+	// Debug logging for booking creation
+	go func() {
+		f, _ := os.OpenFile("/home/user/git/ai-for-developers-project-386/.cursor/debug-5ccf59.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if f != nil {
+			defer f.Close()
+			logLine := fmt.Sprintf(`{"id":"log_%d","timestamp":%d,"location":"handlers_bookings.go:85","message":"Booking create request","data":{"scheduleId":"%s","slotStartTime":"%s","ownerId":"%s","userId":"%s"},"hypothesisId":"H1"}`+"\n",
+				time.Now().UnixNano(), time.Now().UnixMilli(), req.ScheduleID, req.SlotStartTime, req.OwnerID, userID)
+			f.WriteString(logLine)
+		}
+	}()
+	// #endregion
 
 	// Check if user can see the owner
 	canSee, err := h.canSeeUser(r.Context(), userID, req.OwnerID)
@@ -102,15 +118,29 @@ func (h *bookingsHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if slot is already booked
+	// Check if slot is already booked for this specific date
 	var exists bool
 	err = h.pool.QueryRow(r.Context(),
-		"SELECT EXISTS(SELECT 1 FROM bookings WHERE schedule_id = $1 AND status = 'active')",
-		req.ScheduleID).Scan(&exists)
+		"SELECT EXISTS(SELECT 1 FROM bookings WHERE schedule_id = $1 AND slot_date = $2 AND status = 'active')",
+		req.ScheduleID, req.SlotDate).Scan(&exists)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	// #region agent log
+	// Debug logging for existing booking check
+	go func(existsVal bool) {
+		f, _ := os.OpenFile("/home/user/git/ai-for-developers-project-386/.cursor/debug-5ccf59.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if f != nil {
+			defer f.Close()
+			logLine := fmt.Sprintf(`{"id":"log_%d","timestamp":%d,"location":"handlers_bookings.go:120","message":"Booking existence check","data":{"scheduleId":"%s","exists":%t},"hypothesisId":"H1"}`+"\n",
+				time.Now().UnixNano(), time.Now().UnixMilli(), req.ScheduleID, existsVal)
+			f.WriteString(logLine)
+		}
+	}(exists)
+	// #endregion
+
 	if exists {
 		jsonError(w, http.StatusConflict, "this slot is already booked")
 		return
@@ -119,10 +149,10 @@ func (h *bookingsHandler) create(w http.ResponseWriter, r *http.Request) {
 	// Create booking
 	var b models.Booking
 	err = h.pool.QueryRow(r.Context(),
-		`INSERT INTO bookings (schedule_id, booker_id, owner_id)
-		 VALUES ($1, $2, $3)
+		`INSERT INTO bookings (schedule_id, booker_id, owner_id, slot_start_time, slot_date)
+		 VALUES ($1, $2, $3, $4, $5)
 		 RETURNING id, schedule_id, booker_id, owner_id, status, TO_CHAR(created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
-		req.ScheduleID, userID, req.OwnerID).
+		req.ScheduleID, userID, req.OwnerID, req.SlotStartTime, req.SlotDate).
 		Scan(&b.ID, &b.ScheduleID, &b.Booker.ID, &b.Owner.ID, &b.Status, &b.CreatedAt)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, err.Error())

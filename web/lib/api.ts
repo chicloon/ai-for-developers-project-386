@@ -104,6 +104,8 @@ export interface Booking {
 export interface CreateBookingRequest {
   ownerId: string;
   scheduleId: string;
+  slotStartTime: string;
+  slotDate: string;
 }
 
 export interface BookingsListResponse {
@@ -361,8 +363,13 @@ export async function createBooking(
     body: JSON.stringify(data),
   });
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || "Failed to create booking");
+    let errData: any;
+    try {
+      errData = await res.json();
+    } catch (e) {
+      errData = { error: `HTTP ${res.status}` };
+    }
+    throw new Error(errData.error || "Failed to create booking");
   }
   return res.json();
 }

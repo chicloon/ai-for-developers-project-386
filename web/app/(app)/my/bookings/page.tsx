@@ -138,11 +138,21 @@ export default function MyBookingsPage() {
   }
 
   // Filter bookings based on active tab
+  // For recurring schedules (empty date), treat as upcoming
+  const isUpcoming = (date: string) => {
+    if (!date) return true; // Empty date = recurring, treat as upcoming
+    return new Date(date) >= new Date();
+  };
+  const isPast = (date: string) => {
+    if (!date) return false; // Empty date = recurring, not past
+    return new Date(date) < new Date();
+  };
+
   const incomingBookings = bookings.filter(
-    (b) => b.status !== "cancelled" && new Date(b.date) >= new Date()
+    (b) => b.status !== "cancelled" && isUpcoming(b.date)
   );
   const pastBookings = bookings.filter(
-    (b) => b.status === "cancelled" || new Date(b.date) < new Date()
+    (b) => b.status === "cancelled" || isPast(b.date)
   );
 
   return (

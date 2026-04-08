@@ -27,7 +27,7 @@ export default function UserProfilePage() {
 
   const [user, setUser] = useState<User | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
-  const [slots, setSlots] = useState<Slot[]>([]);
+  const [slots, setSlots] = useState<Slot[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [bookingInProgress, setBookingInProgress] = useState<string | null>(null);
@@ -63,7 +63,7 @@ export default function UserProfilePage() {
       setSlotsLoading(true);
       const dateStr = selectedDate.toISOString().split("T")[0];
       const data = await getUserSlots(userId, dateStr);
-      setSlots(data.slots);
+      setSlots(data.slots ?? []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -78,12 +78,14 @@ export default function UserProfilePage() {
       setError(null);
       setSuccess(null);
 
-      // Extract schedule ID from slot ID (format: "scheduleId_startTime")
-      const scheduleId = slot.id.split("_")[0];
+      // Extract schedule ID and start time from slot ID (format: "scheduleId_startTime")
+      const [scheduleId, slotStartTime] = slot.id.split("_");
 
       await createBooking({
         ownerId: userId,
         scheduleId: scheduleId,
+        slotStartTime: slotStartTime,
+        slotDate: slot.date,
       });
 
       setSuccess("Запись успешно создана!");
@@ -112,7 +114,7 @@ export default function UserProfilePage() {
     );
   }
 
-  const availableSlots = slots.filter((s) => !s.isBooked);
+  const availableSlots = slots?.filter((s) => !s.isBooked) ?? [];
 
   return (
     <Stack gap="md">

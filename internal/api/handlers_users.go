@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"call-booking/internal/auth"
@@ -177,14 +178,13 @@ func (h *usersHandler) getSlotsForDate(ctx context.Context, userID, date string)
 		schedules = append(schedules, s)
 	}
 
-	// Get booked slots
+	// Get booked slots - use slot_date to properly track bookings on recurring schedules
 	bookedRows, err := h.pool.Query(ctx, `
-		SELECT TO_CHAR(s.start_time, 'HH24:MI')
-		FROM bookings b
-		JOIN schedules s ON s.id = b.schedule_id
-		WHERE b.owner_id = $1 
-		  AND s.date = $2
-		  AND b.status = 'active'
+		SELECT slot_start_time
+		FROM bookings
+		WHERE owner_id = $1
+		  AND slot_date = $2
+		  AND status = 'active'
 	`, userID, date)
 	if err != nil {
 		return nil, err
@@ -199,6 +199,23 @@ func (h *usersHandler) getSlotsForDate(ctx context.Context, userID, date string)
 		}
 		bookedTimes[startTime] = true
 	}
+
+	// #region agent log
+	// Debug logging for slot checking
+	go func(dateStr string, times map[string]bool) {
+		f, _ := os.OpenFile("/home/user/git/ai-for-developers-project-386/.cursor/debug-5ccf59.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if f != nil {
+			defer f.Close()
+			timesList := make([]string, 0, len(times))
+			for t := range times {
+				timesList = append(timesList, t)
+			}
+			logLine := fmt.Sprintf(`{"id":"log_%d","timestamp":%d,"location":"handlers_users.go:210","message":"Booked times for date","data":{"date":"%s","bookedTimes":%q},"hypothesisId":"H2"}`+"\n",
+				time.Now().UnixNano(), time.Now().UnixMilli(), dateStr, timesList)
+			f.WriteString(logLine)
+		}
+	}(date, bookedTimes)
+	// #endregion
 
 	// Generate 30-min slots
 	var slots []models.Slot

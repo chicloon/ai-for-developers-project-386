@@ -98,8 +98,10 @@ type Booking struct {
 }
 
 type CreateBookingRequest struct {
-	OwnerID    string `json:"ownerId"`
-	ScheduleID string `json:"scheduleId"`
+	OwnerID       string `json:"ownerId"`
+	ScheduleID    string `json:"scheduleId"`
+	SlotStartTime string `json:"slotStartTime"`
+	SlotDate      string `json:"slotDate"`
 }
 
 // CreateBooking for legacy compatibility (test support)

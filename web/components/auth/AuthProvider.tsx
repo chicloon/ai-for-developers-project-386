@@ -37,11 +37,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Prevent hydration mismatch by rendering children only after mount
-  if (!mounted) {
-    return <>{children}</>;
-  }
-
   const login = (token: string, userData: User) => {
     setAuthToken(token);
     setUser(userData);
@@ -62,7 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout,
       }}
     >
-      {children}
+      {/* Prevent hydration mismatch by rendering children only after mount */}
+      {mounted ? children : null}
     </AuthContext.Provider>
   );
 }
