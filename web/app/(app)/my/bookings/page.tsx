@@ -9,10 +9,25 @@ import { DatesProvider } from "@mantine/dates";
 import { Booking, getMyBookings, cancelBooking } from "@/lib/api";
 import { useAuth } from "@/components/auth/AuthProvider";
 import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
 import "dayjs/locale/ru";
 
-// Настройка локали для этого модуля
+// Настройка локали и плагинов для этого модуля
 dayjs.locale("ru");
+dayjs.extend(customParseFormat);
+
+// Format time from HH:mm:ss or HH:mm:ss.ssssss or HH:mm to HH:mm
+function formatTime(timeStr: string): string {
+  // Remove microseconds if present
+  const cleanStr = timeStr.split('.')[0];
+  // Already in HH:mm format (HH:mm has 5 chars: "09:00")
+  if (cleanStr.length === 5 && cleanStr.includes(':')) {
+    return cleanStr;
+  }
+  // Has seconds - parse and format
+  const parsed = dayjs(cleanStr, "HH:mm:ss");
+  return parsed.isValid() ? parsed.format("HH:mm") : cleanStr;
+}
 
 // Цвета для групп
 const GROUP_COLORS: Record<string, string> = {
@@ -129,7 +144,7 @@ function BookingModal({
           <b>Дата:</b> {formatDate(booking.date)}
         </Text>
         <Text size="sm">
-          <b>Время:</b> {booking.startTime} - {booking.endTime}
+          <b>Время:</b> {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
         </Text>
 
         <Divider />

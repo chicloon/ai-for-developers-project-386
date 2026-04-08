@@ -250,10 +250,10 @@ func (h *usersHandler) getSlotsForDate(ctx context.Context, currentUserID, owner
 			) as group_ids
 		FROM schedules s
 		LEFT JOIN schedule_visibility_groups svg ON svg.schedule_id = s.id
-		WHERE s.user_id = $1 
+		WHERE s.user_id = $1
 		  AND (
-			  (s.type = 'one-time' AND s.date = $2) 
-			  OR 
+			  (s.type = 'one-time' AND s.date = $2)
+			  OR
 			  (s.type = 'recurring' AND s.day_of_week = EXTRACT(DOW FROM $2::date))
 		  )
 		GROUP BY s.id, s.start_time, s.end_time, s.is_blocked

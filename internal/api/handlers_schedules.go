@@ -35,7 +35,7 @@ func (h *schedulesHandler) list(w http.ResponseWriter, r *http.Request) {
 	userID := auth.GetUserID(r.Context())
 
 	rows, err := h.pool.Query(r.Context(),
-		`SELECT s.id, s.user_id, s.type, s.day_of_week, s.date, s.start_time, s.end_time, s.is_blocked, 
+		`SELECT s.id, s.user_id, s.type, s.day_of_week, s.date, s.start_time, s.end_time, s.is_blocked,
 			TO_CHAR(s.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
 			COALESCE(
 				ARRAY_AGG(svg.group_id) FILTER (WHERE svg.group_id IS NOT NULL),
@@ -131,8 +131,8 @@ func (h *schedulesHandler) create(w http.ResponseWriter, r *http.Request) {
 	var date *string
 
 	err = tx.QueryRow(r.Context(),
-		`INSERT INTO schedules (user_id, type, day_of_week, date, start_time, end_time, is_blocked) 
-		 VALUES ($1, $2, $3, $4, $5, $6, $7) 
+		`INSERT INTO schedules (user_id, type, day_of_week, date, start_time, end_time, is_blocked)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
 		 RETURNING id, user_id, type, day_of_week, date, start_time, end_time, is_blocked, TO_CHAR(created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
 		userID, req.Type, req.DayOfWeek, req.Date, startTime, endTime, req.IsBlocked).
 		Scan(&s.ID, &s.UserID, &s.Type, &dayOfWeek, &date, &s.StartTime, &s.EndTime, &s.IsBlocked, &s.CreatedAt)
@@ -226,8 +226,8 @@ func (h *schedulesHandler) update(w http.ResponseWriter, r *http.Request) {
 	var date *string
 
 	err = tx.QueryRow(r.Context(),
-		`UPDATE schedules SET type=$1, day_of_week=$2, date=$3, start_time=$4, end_time=$5, is_blocked=$6 
-		 WHERE id=$7 AND user_id=$8 
+		`UPDATE schedules SET type=$1, day_of_week=$2, date=$3, start_time=$4, end_time=$5, is_blocked=$6
+		 WHERE id=$7 AND user_id=$8
 		 RETURNING id, user_id, type, day_of_week, date, start_time, end_time, is_blocked, TO_CHAR(created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
 		req.Type, req.DayOfWeek, req.Date, startTime, endTime, req.IsBlocked, scheduleID, userID).
 		Scan(&s.ID, &s.UserID, &s.Type, &dayOfWeek, &date, &s.StartTime, &s.EndTime, &s.IsBlocked, &s.CreatedAt)

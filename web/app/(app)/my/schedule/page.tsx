@@ -27,6 +27,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { TimeInput } from "@mantine/dates";
 import { IconTrash, IconEdit, IconUserPlus, IconInfoCircle } from "@tabler/icons-react";
+import dayjs from "dayjs";
 import {
   Schedule,
   VisibilityGroup,
@@ -42,6 +43,7 @@ import {
   removeGroupMember,
   getMe,
   updateMe,
+  getUsers,
   CreateScheduleRequest,
 } from "@/lib/api";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -55,6 +57,17 @@ const DAYS_OF_WEEK = [
   { value: "6", label: "Суббота" },
   { value: "0", label: "Воскресенье" },
 ];
+
+// Format time from HH:mm:ss or HH:mm to HH:mm (handles both formats)
+function formatTime(timeStr: string): string {
+  // Already in HH:mm format
+  if (timeStr.length === 5 && timeStr.includes(':')) {
+    return timeStr;
+  }
+  // Has seconds - parse and format
+  const parsed = dayjs(timeStr, "HH:mm:ss");
+  return parsed.isValid() ? parsed.format("HH:mm") : timeStr;
+}
 
 // Fixed group order and display info
 const GROUP_INFO: Record<string, { label: string; color: string; description: string }> = {
@@ -86,6 +99,7 @@ export default function MySchedulePage() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [memberEmail, setMemberEmail] = useState("");
   const [addingMember, setAddingMember] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState<User[]>([]);
 
   // Schedule form state
   const [type, setType] = useState<"recurring" | "one-time">("recurring");
@@ -165,6 +179,7 @@ export default function MySchedulePage() {
       closeAddMember();
       setMemberEmail("");
       setSelectedGroupId(null);
+      setAvailableUsers([]);
       await loadData();
     } catch (e) {
       console.error(e);
@@ -182,9 +197,15 @@ export default function MySchedulePage() {
     }
   };
 
-  const openAddMemberModal = (groupId: string) => {
+  const openAddMemberModal = async (groupId: string) => {
     setSelectedGroupId(groupId);
     setMemberEmail("");
+    try {
+      const usersData = await getUsers();
+      setAvailableUsers(usersData.users);
+    } catch (e) {
+      console.error("Failed to load users:", e);
+    }
     openAddMember();
   };
 
@@ -319,7 +340,7 @@ export default function MySchedulePage() {
                             : schedule.date}
                         </Table.Td>
                         <Table.Td data-testid={`schedule-time-${schedule.id}`}>
-                          {schedule.startTime} - {schedule.endTime}
+                          {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
                         </Table.Td>
                         <Table.Td data-testid={`schedule-status-${schedule.id}`}>
                           {schedule.isBlocked ? (
@@ -601,13 +622,21 @@ export default function MySchedulePage() {
       >
         <Stack gap="md">
           <Text size="sm" c="dimmed">
-            Введите email пользователя, которого хотите добавить в группу
+            Выберите пользователя, которого хотите добавить в группу
           </Text>
-          <TextInput
-            label="Email пользователя"
-            placeholder="user@example.com"
+          <Select
+            label="Пользователь"
+            placeholder="Найти по email..."
+            searchable
+            clearable
+            data={availableUsers.map((user) => ({
+              value: user.email,
+              label: `${user.name} (${user.email})`,
+            }))}
             value={memberEmail}
-            onChange={(e) => setMemberEmail(e.target.value)}
+            onChange={(value) => setMemberEmail(value || "")}
+            nothingFoundMessage="Пользователь не найден"
+            disabled={availableUsers.length === 0}
           />
           <Group justify="flex-end">
             <Button variant="default" onClick={closeAddMember}>

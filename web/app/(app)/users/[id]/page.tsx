@@ -19,6 +19,24 @@ import {
 import { DatePickerInput } from "@mantine/dates";
 import { User, Slot, getUser, getUserSlots, createBooking } from "@/lib/api";
 import { useAuth } from "@/components/auth/AuthProvider";
+import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+
+// Extend dayjs with custom parse format
+dayjs.extend(customParseFormat);
+
+// Format time from HH:mm:ss or HH:mm:ss.ssssss or HH:mm to HH:mm
+function formatTime(timeStr: string): string {
+  // Remove microseconds if present
+  const cleanStr = timeStr.split('.')[0];
+  // Already in HH:mm format (HH:mm has 5 chars: "09:00")
+  if (cleanStr.length === 5 && cleanStr.includes(':')) {
+    return cleanStr;
+  }
+  // Has seconds - parse and format
+  const parsed = dayjs(cleanStr, "HH:mm:ss");
+  return parsed.isValid() ? parsed.format("HH:mm") : cleanStr;
+}
 
 export default function UserProfilePage() {
   const params = useParams();
@@ -167,7 +185,7 @@ export default function UserProfilePage() {
               <Card key={slot.id} withBorder padding="sm">
                 <Group justify="space-between">
                   <Text>
-                    {slot.startTime} - {slot.endTime}
+                    {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
                   </Text>
                   <Button
                     size="sm"
