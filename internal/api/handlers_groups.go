@@ -39,7 +39,7 @@ func (h *groupsHandler) list(w http.ResponseWriter, r *http.Request) {
 	userID := auth.GetUserID(r.Context())
 
 	rows, err := h.pool.Query(r.Context(),
-		"SELECT id, owner_id, name, visibility_level, created_at FROM visibility_groups WHERE owner_id = $1 ORDER BY created_at DESC",
+		"SELECT id, owner_id, name, visibility_level, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') FROM visibility_groups WHERE owner_id = $1 ORDER BY created_at DESC",
 		userID)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "database error")
@@ -91,7 +91,7 @@ func (h *groupsHandler) create(w http.ResponseWriter, r *http.Request) {
 
 	var g models.VisibilityGroup
 	err := h.pool.QueryRow(r.Context(),
-		"INSERT INTO visibility_groups (owner_id, name, visibility_level) VALUES ($1, $2, $3) RETURNING id, owner_id, name, visibility_level, created_at",
+		"INSERT INTO visibility_groups (owner_id, name, visibility_level) VALUES ($1, $2, $3) RETURNING id, owner_id, name, visibility_level, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')",
 		userID, req.Name, req.VisibilityLevel).
 		Scan(&g.ID, &g.OwnerID, &g.Name, &g.VisibilityLevel, &g.CreatedAt)
 	if err != nil {
@@ -130,7 +130,7 @@ func (h *groupsHandler) update(w http.ResponseWriter, r *http.Request) {
 
 	var g models.VisibilityGroup
 	err := h.pool.QueryRow(r.Context(),
-		"UPDATE visibility_groups SET name=$1, visibility_level=$2 WHERE id=$3 AND owner_id=$4 RETURNING id, owner_id, name, visibility_level, created_at",
+		"UPDATE visibility_groups SET name=$1, visibility_level=$2 WHERE id=$3 AND owner_id=$4 RETURNING id, owner_id, name, visibility_level, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')",
 		req.Name, req.VisibilityLevel, groupID, userID).
 		Scan(&g.ID, &g.OwnerID, &g.Name, &g.VisibilityLevel, &g.CreatedAt)
 	if err != nil {
@@ -192,8 +192,8 @@ func (h *groupsHandler) listMembers(w http.ResponseWriter, r *http.Request) {
 
 	// Get members with user info
 	rows, err := h.pool.Query(r.Context(),
-		`SELECT gm.id, gm.group_id, gm.added_by, gm.added_at,
-			u.id, u.email, u.name, u.created_at
+		`SELECT gm.id, gm.group_id, gm.added_by, TO_CHAR(gm.added_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+			u.id, u.email, u.name, TO_CHAR(u.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
 		 FROM group_members gm
 		 JOIN users u ON gm.member_id = u.id
 		 WHERE gm.group_id = $1
@@ -299,7 +299,7 @@ func (h *groupsHandler) addMember(w http.ResponseWriter, r *http.Request) {
 	var user models.User
 	err = h.pool.QueryRow(r.Context(),
 		`INSERT INTO group_members (group_id, member_id, added_by) VALUES ($1, $2, $3)
-		 RETURNING id, group_id, added_by, added_at`,
+		 RETURNING id, group_id, added_by, TO_CHAR(added_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
 		groupID, memberID, userID).
 		Scan(&m.ID, &m.GroupID, &m.AddedBy, &m.AddedAt)
 	if err != nil {
@@ -314,7 +314,7 @@ func (h *groupsHandler) addMember(w http.ResponseWriter, r *http.Request) {
 
 	// Get user info
 	err = h.pool.QueryRow(r.Context(),
-		"SELECT id, email, name, created_at FROM users WHERE id = $1",
+		"SELECT id, email, name, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') FROM users WHERE id = $1",
 		memberID).Scan(&user.ID, &user.Email, &user.Name, &user.CreatedAt)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "database error")

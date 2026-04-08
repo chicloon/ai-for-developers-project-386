@@ -37,7 +37,7 @@ func (h *bookingsHandler) list(w http.ResponseWriter, r *http.Request) {
 		       bu.id, bu.email, bu.name,
 		       ou.id, ou.email, ou.name,
 		       s.date, s.start_time, s.end_time,
-		       b.status, b.created_at, b.cancelled_at
+		       b.status, TO_CHAR(b.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), TO_CHAR(b.cancelled_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
 		FROM bookings b
 		JOIN users bu ON bu.id = b.booker_id
 		JOIN users ou ON ou.id = b.owner_id
@@ -119,9 +119,9 @@ func (h *bookingsHandler) create(w http.ResponseWriter, r *http.Request) {
 	// Create booking
 	var b models.Booking
 	err = h.pool.QueryRow(r.Context(),
-		`INSERT INTO bookings (schedule_id, booker_id, owner_id) 
-		 VALUES ($1, $2, $3) 
-		 RETURNING id, schedule_id, booker_id, owner_id, status, created_at`,
+		`INSERT INTO bookings (schedule_id, booker_id, owner_id)
+		 VALUES ($1, $2, $3)
+		 RETURNING id, schedule_id, booker_id, owner_id, status, TO_CHAR(created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
 		req.ScheduleID, userID, req.OwnerID).
 		Scan(&b.ID, &b.ScheduleID, &b.Booker.ID, &b.Owner.ID, &b.Status, &b.CreatedAt)
 	if err != nil {
