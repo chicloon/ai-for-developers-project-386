@@ -180,11 +180,17 @@ export async function register(data: RegisterRequest): Promise<AuthResponse> {
 }
 
 export async function login(data: LoginRequest): Promise<AuthResponse> {
+  // #region agent log
+  fetch('http://127.0.0.1:7924/ingest/df065418-75a6-4c94-b505-bfe4e2e4e84a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'709baf'},body:JSON.stringify({sessionId:'709baf',location:'api.ts:login',message:'Login request start',data:{email:data.email},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   const res = await fetch("/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
+  // #region agent log
+  fetch('http://127.0.0.1:7924/ingest/df065418-75a6-4c94-b505-bfe4e2e4e84a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'709baf'},body:JSON.stringify({sessionId:'709baf',location:'api.ts:login',message:'Login response received',data:{status:res.status,ok:res.ok},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.error || "Login failed");

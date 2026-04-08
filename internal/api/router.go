@@ -28,6 +28,11 @@ func NewRouter(pool *pgxpool.Pool) *chi.Mux {
 	// Global middleware
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	// #region agent log - health check endpoint
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		jsonResponse(w, http.StatusOK, map[string]string{"status": "ok", "service": "api"})
+	})
+	// #endregion
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
