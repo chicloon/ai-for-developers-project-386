@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -159,14 +158,6 @@ func (h *usersHandler) getSlotsForDate(ctx context.Context, userID, date string)
 		ORDER BY start_time
 	`, userID, date)
 	if err != nil {
-		// #region agent log - Hypothesis B: schedules query failed
-		f, _ := os.OpenFile("/home/user/git/ai-for-developers-project-386/.cursor/debug-ff3c7c.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if f != nil {
-			enc := json.NewEncoder(f)
-			enc.Encode(map[string]interface{}{"sessionId":"ff3c7c","timestamp":time.Now().UnixMilli(),"location":"handlers_users.go:160","message":"schedules query failed","data":map[string]interface{}{"userID":userID,"date":date,"error":err.Error(),"hypothesisId":"B"}})
-			f.Close()
-		}
-		// #endregion
 		return nil, err
 	}
 	defer rows.Close()
