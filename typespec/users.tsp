@@ -14,4 +14,8 @@ interface Users {
   @get
   @route("/{id}/slots")
   slots(@path id: string, @query date: string): SlotsListResponse | ErrorResponse;
+
+  @put
+  @route("/me")
+  updateMe(@body update: UpdateUserRequest): User | ErrorResponse;
 }

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"call-booking/internal/auth"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -51,6 +53,12 @@ func NewRouter(pool *pgxpool.Pool) *chi.Mux {
 		r.Mount("/my/schedules", schedulesRouter(pool))
 		r.Mount("/my/groups", groupsRouter(pool))
 		r.Mount("/my/bookings", bookingsRouter(pool))
+	})
+
+	// Route for current user profile updates
+	r.With(auth.Middleware).Put("/api/users/me", func(w http.ResponseWriter, r *http.Request) {
+		h := &usersHandler{pool: pool}
+		h.updateMe(w, r)
 	})
 
 	return r

@@ -5,17 +5,8 @@ namespace CallBooking;
 
 @route("/api/my/groups")
 interface Groups {
+  // List user's fixed visibility groups (Family, Work, Friends)
   @get list(): GroupsListResponse | ErrorResponse;
-
-  @post create(@body group: CreateGroupRequest): { @statusCode _: 201; ...VisibilityGroup } | ErrorResponse;
-
-  @put
-  @route("/{id}")
-  update(@path id: string, @body group: CreateGroupRequest): VisibilityGroup | ErrorResponse;
-
-  @delete
-  @route("/{id}")
-  delete(@path id: string): { @statusCode _: 204; } | ErrorResponse;
 
   @get
   @route("/{id}/members")

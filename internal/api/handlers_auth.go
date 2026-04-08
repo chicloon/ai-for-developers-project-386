@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"call-booking/internal/auth"
@@ -64,12 +65,28 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 	// Create user
 	var user models.User
 	err = h.pool.QueryRow(r.Context(),
-		"INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id, email, name, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')",
+		"INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id, email, name, is_public, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')",
 		req.Email, hash, req.Name).
-		Scan(&user.ID, &user.Email, &user.Name, &user.CreatedAt)
+		Scan(&user.ID, &user.Email, &user.Name, &user.IsPublic, &user.CreatedAt)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "database error")
 		return
+	}
+
+	// Create fixed visibility groups for the new user
+	groupNames := map[string]string{
+		"family":  "Семья",
+		"work":    "Работа",
+		"friends": "Друзья",
+	}
+	for level, name := range groupNames {
+		_, err := h.pool.Exec(r.Context(),
+			"INSERT INTO visibility_groups (owner_id, name, visibility_level) VALUES ($1, $2, $3)",
+			user.ID, name, level)
+		if err != nil {
+			// Log error but don't fail registration
+			log.Printf("Failed to create %s group for user %s: %v", level, user.ID, err)
+		}
 	}
 
 	// Generate token
@@ -102,9 +119,9 @@ func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
 	var user models.User
 	var passwordHash string
 	err := h.pool.QueryRow(r.Context(),
-		"SELECT id, email, name, password_hash, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') FROM users WHERE email = $1",
+		"SELECT id, email, name, is_public, password_hash, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') FROM users WHERE email = $1",
 		req.Email).
-		Scan(&user.ID, &user.Email, &user.Name, &passwordHash, &user.CreatedAt)
+		Scan(&user.ID, &user.Email, &user.Name, &user.IsPublic, &passwordHash, &user.CreatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			// Run dummy bcrypt to prevent timing attacks
@@ -140,9 +157,9 @@ func (h *authHandler) me(w http.ResponseWriter, r *http.Request) {
 
 	var user models.User
 	err := h.pool.QueryRow(r.Context(),
-		"SELECT id, email, name, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') FROM users WHERE id = $1",
+		"SELECT id, email, name, is_public, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') FROM users WHERE id = $1",
 		userID).
-		Scan(&user.ID, &user.Email, &user.Name, &user.CreatedAt)
+		Scan(&user.ID, &user.Email, &user.Name, &user.IsPublic, &user.CreatedAt)
 	if err != nil {
 		jsonError(w, http.StatusNotFound, "user not found")
 		return

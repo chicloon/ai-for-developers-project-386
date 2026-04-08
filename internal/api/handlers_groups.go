@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"call-booking/internal/auth"
@@ -22,9 +23,6 @@ func groupsRouter(pool *pgxpool.Pool) http.Handler {
 
 	r.Use(auth.Middleware)
 	r.Get("/", h.list)
-	r.Post("/", h.create)
-	r.Put("/{id}", h.update)
-	r.Delete("/{id}", h.delete)
 
 	// Member management routes
 	r.Get("/{id}/members", h.listMembers)
@@ -34,12 +32,22 @@ func groupsRouter(pool *pgxpool.Pool) http.Handler {
 	return r
 }
 
-// list returns all groups owned by the current user
+// list returns all fixed groups owned by the current user
+// Groups are auto-created on registration: Family, Work, Friends
+// If groups don't exist (legacy users), they are created on-demand
 func (h *groupsHandler) list(w http.ResponseWriter, r *http.Request) {
 	userID := auth.GetUserID(r.Context())
 
 	rows, err := h.pool.Query(r.Context(),
-		"SELECT id, owner_id, name, visibility_level, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') FROM visibility_groups WHERE owner_id = $1 ORDER BY created_at DESC",
+		`SELECT id, owner_id, name, visibility_level, TO_CHAR(created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+		 FROM visibility_groups
+		 WHERE owner_id = $1
+		 ORDER BY
+		   CASE visibility_level
+		     WHEN 'family' THEN 1
+		     WHEN 'friends' THEN 2
+		     WHEN 'work' THEN 3
+		   END`,
 		userID)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "database error")
@@ -57,113 +65,55 @@ func (h *groupsHandler) list(w http.ResponseWriter, r *http.Request) {
 		groups = append(groups, g)
 	}
 
+	// Auto-create missing groups for legacy users (registered before auto-creation logic)
+	if len(groups) == 0 {
+		groupNames := map[string]string{
+			"family":  "Семья",
+			"work":    "Работа",
+			"friends": "Друзья",
+		}
+		for level, name := range groupNames {
+			_, err := h.pool.Exec(r.Context(),
+				"INSERT INTO visibility_groups (owner_id, name, visibility_level) VALUES ($1, $2, $3)",
+				userID, name, level)
+			if err != nil {
+				log.Printf("Failed to create %s group for user %s: %v", level, userID, err)
+			}
+		}
+
+		// Re-query to get the newly created groups
+		rows, err = h.pool.Query(r.Context(),
+			`SELECT id, owner_id, name, visibility_level, TO_CHAR(created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+			 FROM visibility_groups
+			 WHERE owner_id = $1
+			 ORDER BY
+			   CASE visibility_level
+			     WHEN 'family' THEN 1
+			     WHEN 'friends' THEN 2
+			     WHEN 'work' THEN 3
+			   END`,
+			userID)
+		if err != nil {
+			jsonError(w, http.StatusInternalServerError, "database error")
+			return
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var g models.VisibilityGroup
+			if err := rows.Scan(&g.ID, &g.OwnerID, &g.Name, &g.VisibilityLevel, &g.CreatedAt); err != nil {
+				jsonError(w, http.StatusInternalServerError, "database error")
+				return
+			}
+			groups = append(groups, g)
+		}
+	}
+
 	if groups == nil {
 		groups = []models.VisibilityGroup{}
 	}
 
 	jsonResponse(w, http.StatusOK, map[string]interface{}{"groups": groups})
-}
-
-// create creates a new visibility group
-func (h *groupsHandler) create(w http.ResponseWriter, r *http.Request) {
-	userID := auth.GetUserID(r.Context())
-
-	var req models.CreateGroupRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	// Validate
-	if req.Name == "" {
-		jsonError(w, http.StatusBadRequest, "name is required")
-		return
-	}
-	if req.VisibilityLevel == "" {
-		jsonError(w, http.StatusBadRequest, "visibilityLevel is required")
-		return
-	}
-	validLevels := map[string]bool{"family": true, "work": true, "friends": true, "public": true}
-	if !validLevels[req.VisibilityLevel] {
-		jsonError(w, http.StatusBadRequest, "visibilityLevel must be 'family', 'work', 'friends', or 'public'")
-		return
-	}
-
-	var g models.VisibilityGroup
-	err := h.pool.QueryRow(r.Context(),
-		"INSERT INTO visibility_groups (owner_id, name, visibility_level) VALUES ($1, $2, $3) RETURNING id, owner_id, name, visibility_level, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')",
-		userID, req.Name, req.VisibilityLevel).
-		Scan(&g.ID, &g.OwnerID, &g.Name, &g.VisibilityLevel, &g.CreatedAt)
-	if err != nil {
-		jsonError(w, http.StatusInternalServerError, "database error")
-		return
-	}
-
-	jsonResponse(w, http.StatusCreated, g)
-}
-
-// update updates a group (only owner can update)
-func (h *groupsHandler) update(w http.ResponseWriter, r *http.Request) {
-	userID := auth.GetUserID(r.Context())
-	groupID := chi.URLParam(r, "id")
-
-	var req models.CreateGroupRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	// Validate
-	if req.Name == "" {
-		jsonError(w, http.StatusBadRequest, "name is required")
-		return
-	}
-	if req.VisibilityLevel == "" {
-		jsonError(w, http.StatusBadRequest, "visibilityLevel is required")
-		return
-	}
-	validLevels := map[string]bool{"family": true, "work": true, "friends": true, "public": true}
-	if !validLevels[req.VisibilityLevel] {
-		jsonError(w, http.StatusBadRequest, "visibilityLevel must be 'family', 'work', 'friends', or 'public'")
-		return
-	}
-
-	var g models.VisibilityGroup
-	err := h.pool.QueryRow(r.Context(),
-		"UPDATE visibility_groups SET name=$1, visibility_level=$2 WHERE id=$3 AND owner_id=$4 RETURNING id, owner_id, name, visibility_level, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')",
-		req.Name, req.VisibilityLevel, groupID, userID).
-		Scan(&g.ID, &g.OwnerID, &g.Name, &g.VisibilityLevel, &g.CreatedAt)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			jsonError(w, http.StatusNotFound, "group not found")
-			return
-		}
-		jsonError(w, http.StatusInternalServerError, "database error")
-		return
-	}
-
-	jsonResponse(w, http.StatusOK, g)
-}
-
-// delete deletes a group (only owner can delete)
-func (h *groupsHandler) delete(w http.ResponseWriter, r *http.Request) {
-	userID := auth.GetUserID(r.Context())
-	groupID := chi.URLParam(r, "id")
-
-	result, err := h.pool.Exec(r.Context(),
-		"DELETE FROM visibility_groups WHERE id = $1 AND owner_id = $2",
-		groupID, userID)
-	if err != nil {
-		jsonError(w, http.StatusInternalServerError, "database error")
-		return
-	}
-
-	if result.RowsAffected() == 0 {
-		jsonError(w, http.StatusNotFound, "group not found")
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
 }
 
 // listMembers returns all members of a group (only owner can view)
@@ -193,7 +143,7 @@ func (h *groupsHandler) listMembers(w http.ResponseWriter, r *http.Request) {
 	// Get members with user info
 	rows, err := h.pool.Query(r.Context(),
 		`SELECT gm.id, gm.group_id, gm.added_by, TO_CHAR(gm.added_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
-			u.id, u.email, u.name, TO_CHAR(u.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+			 u.id, u.email, u.name, u.is_public, TO_CHAR(u.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
 		 FROM group_members gm
 		 JOIN users u ON gm.member_id = u.id
 		 WHERE gm.group_id = $1
@@ -210,7 +160,7 @@ func (h *groupsHandler) listMembers(w http.ResponseWriter, r *http.Request) {
 		var m models.GroupMember
 		var user models.User
 		if err := rows.Scan(&m.ID, &m.GroupID, &m.AddedBy, &m.AddedAt,
-			&user.ID, &user.Email, &user.Name, &user.CreatedAt); err != nil {
+			&user.ID, &user.Email, &user.Name, &user.IsPublic, &user.CreatedAt); err != nil {
 			jsonError(w, http.StatusInternalServerError, "database error")
 			return
 		}
@@ -314,8 +264,8 @@ func (h *groupsHandler) addMember(w http.ResponseWriter, r *http.Request) {
 
 	// Get user info
 	err = h.pool.QueryRow(r.Context(),
-		"SELECT id, email, name, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') FROM users WHERE id = $1",
-		memberID).Scan(&user.ID, &user.Email, &user.Name, &user.CreatedAt)
+		"SELECT id, email, name, is_public, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') FROM users WHERE id = $1",
+		memberID).Scan(&user.ID, &user.Email, &user.Name, &user.IsPublic, &user.CreatedAt)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "database error")
 		return
