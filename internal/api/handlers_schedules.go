@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"call-booking/internal/auth"
@@ -34,7 +33,7 @@ func (h *schedulesHandler) list(w http.ResponseWriter, r *http.Request) {
 	userID := auth.GetUserID(r.Context())
 
 	rows, err := h.pool.Query(r.Context(),
-		"SELECT id, user_id, type, day_of_week, date, start_time, end_time, is_blocked, created_at FROM schedules WHERE user_id = $1 ORDER BY created_at DESC",
+		"SELECT id, user_id, type, day_of_week, date, start_time, end_time, is_blocked, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') FROM schedules WHERE user_id = $1 ORDER BY created_at DESC",
 		userID)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "database error")
@@ -66,31 +65,18 @@ func (h *schedulesHandler) list(w http.ResponseWriter, r *http.Request) {
 func (h *schedulesHandler) create(w http.ResponseWriter, r *http.Request) {
 	userID := auth.GetUserID(r.Context())
 
-	// #region agent log
-	log.Printf("[SCHEDULE CREATE] Request from user: %s", userID)
-	// #endregion
-
 	var req models.CreateScheduleRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		// #region agent log
-		log.Printf("[SCHEDULE CREATE] JSON decode error: %v", err)
-		// #endregion
 		jsonError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	// #region agent log
-	log.Printf("[SCHEDULE CREATE] Parsed: type=%s, dayOfWeek=%v, date=%v, start=%s, end=%s", req.Type, req.DayOfWeek, req.Date, req.StartTime, req.EndTime)
-	// #endregion
-
 	// Validate
 	if req.Type != "recurring" && req.Type != "one-time" {
-		log.Printf("[SCHEDULE CREATE] Invalid type: %s", req.Type)
 		jsonError(w, http.StatusBadRequest, "type must be 'recurring' or 'one-time'")
 		return
 	}
 	if req.StartTime == "" || req.EndTime == "" {
-		log.Printf("[SCHEDULE CREATE] Missing time fields")
 		jsonError(w, http.StatusBadRequest, "start_time and end_time are required")
 		return
 	}
@@ -105,33 +91,18 @@ func (h *schedulesHandler) create(w http.ResponseWriter, r *http.Request) {
 		endTime = endTime + ":00"
 	}
 
-	// #region agent log
-	log.Printf("[SCHEDULE CREATE] Formatted times: start=%s, end=%s", startTime, endTime)
-	// #endregion
-
 	var s models.Schedule
 	var dayOfWeek *int32
 	var date *string
 
-	// #region agent log
-	log.Printf("[SCHEDULE CREATE] Executing INSERT...")
-	// #endregion
-
 	err := h.pool.QueryRow(r.Context(),
-		"INSERT INTO schedules (user_id, type, day_of_week, date, start_time, end_time, is_blocked) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, user_id, type, day_of_week, date, start_time, end_time, is_blocked, created_at",
+		"INSERT INTO schedules (user_id, type, day_of_week, date, start_time, end_time, is_blocked) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, user_id, type, day_of_week, date, start_time, end_time, is_blocked, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')",
 		userID, req.Type, req.DayOfWeek, req.Date, startTime, endTime, req.IsBlocked).
 		Scan(&s.ID, &s.UserID, &s.Type, &dayOfWeek, &date, &s.StartTime, &s.EndTime, &s.IsBlocked, &s.CreatedAt)
 	if err != nil {
-		// #region agent log
-		log.Printf("[SCHEDULE CREATE] DB error: %v", err)
-		// #endregion
 		jsonError(w, http.StatusInternalServerError, "database error: "+err.Error())
 		return
 	}
-
-	// #region agent log
-	log.Printf("[SCHEDULE CREATE] Success: id=%s", s.ID)
-	// #endregion
 
 	s.DayOfWeek = dayOfWeek
 	s.Date = date
@@ -164,7 +135,7 @@ func (h *schedulesHandler) update(w http.ResponseWriter, r *http.Request) {
 	var date *string
 
 	err := h.pool.QueryRow(r.Context(),
-		"UPDATE schedules SET type=$1, day_of_week=$2, date=$3, start_time=$4, end_time=$5, is_blocked=$6 WHERE id=$7 AND user_id=$8 RETURNING id, user_id, type, day_of_week, date, start_time, end_time, is_blocked, created_at",
+		"UPDATE schedules SET type=$1, day_of_week=$2, date=$3, start_time=$4, end_time=$5, is_blocked=$6 WHERE id=$7 AND user_id=$8 RETURNING id, user_id, type, day_of_week, date, start_time, end_time, is_blocked, TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')",
 		req.Type, req.DayOfWeek, req.Date, startTime, endTime, req.IsBlocked, scheduleID, userID).
 		Scan(&s.ID, &s.UserID, &s.Type, &dayOfWeek, &date, &s.StartTime, &s.EndTime, &s.IsBlocked, &s.CreatedAt)
 	if err != nil {
