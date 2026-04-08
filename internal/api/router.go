@@ -25,14 +25,9 @@ func jsonError(w http.ResponseWriter, status int, msg string) {
 func NewRouter(pool *pgxpool.Pool) *chi.Mux {
 	r := chi.NewRouter()
 
-	// Global middleware
+	// Global middleware - ALL middleware must be defined before routes
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	// #region agent log - health check endpoint
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		jsonResponse(w, http.StatusOK, map[string]string{"status": "ok", "service": "api"})
-	})
-	// #endregion
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -41,6 +36,12 @@ func NewRouter(pool *pgxpool.Pool) *chi.Mux {
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
+
+	// #region agent log - health check endpoint
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		jsonResponse(w, http.StatusOK, map[string]string{"status": "ok", "service": "api"})
+	})
+	// #endregion
 
 	// Public routes (no JWT required)
 	r.Mount("/api/auth", authRouter(pool))
