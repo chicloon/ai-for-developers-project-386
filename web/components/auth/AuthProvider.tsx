@@ -16,8 +16,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const token = getAuthToken();
     if (token) {
       getMe()
@@ -34,6 +36,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     }
   }, []);
+
+  // Prevent hydration mismatch by rendering children only after mount
+  if (!mounted) {
+    return <>{children}</>;
+  }
 
   const login = (token: string, userData: User) => {
     setAuthToken(token);
