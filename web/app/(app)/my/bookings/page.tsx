@@ -379,6 +379,7 @@ export default function MyBookingsPage() {
             monthViewProps={{
               withWeekNumbers: true,
               firstDayOfWeek: 1,
+              maxEventsPerDay: 10,
             }}
           />
         </DatesProvider>

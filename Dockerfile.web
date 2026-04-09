@@ -3,7 +3,9 @@ FROM node:20-alpine AS builder
 ARG API_PROXY_URL=http://api:8080
 ENV API_PROXY_URL=$API_PROXY_URL
 WORKDIR /app
+# patches/ нужны до npm install — иначе postinstall (patch-package) не применит фикс MoreEvents
 COPY web/package*.json web/
+COPY web/patches web/patches
 RUN cd web && npm install
 COPY web/ web/
 # Bust stale BuildKit/GHA cache so `next build` always matches current source

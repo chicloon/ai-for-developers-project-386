@@ -2,7 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Paper, Title, TextInput, PasswordInput, Button, Stack, Text, Anchor } from "@mantine/core";
+import {
+  Paper,
+  Title,
+  TextInput,
+  PasswordInput,
+  Button,
+  Stack,
+  Text,
+  Anchor,
+  Group,
+} from "@mantine/core";
 import { login } from "@/lib/api";
 import { useAuth } from "@/components/auth/AuthProvider";
 
@@ -14,13 +24,11 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitCredentials = async (loginEmail: string, loginPassword: string) => {
     setError("");
     setLoading(true);
-
     try {
-      const response = await login({ email, password });
+      const response = await login({ email: loginEmail, password: loginPassword });
       authLogin(response.token, response.user);
       router.push("/");
     } catch (err) {
@@ -28,6 +36,15 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitCredentials(email, password);
+  };
+
+  const handleTestLogin = () => {
+    void submitCredentials("test@test.com", "test");
   };
 
   return (
@@ -51,9 +68,20 @@ export default function LoginPage() {
             data-testid="login-password-input"
           />
           {error && <Text c="red" size="sm" data-testid="login-error">{error}</Text>}
-          <Button type="submit" loading={loading} fullWidth data-testid="login-submit-button">
-            Войти
-          </Button>
+          <Group grow gap="sm" wrap="nowrap">
+            <Button type="submit" loading={loading} fullWidth data-testid="login-submit-button">
+              Войти
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              loading={loading}
+              onClick={handleTestLogin}
+              data-testid="login-test-button"
+            >
+              Test
+            </Button>
+          </Group>
           <Text ta="center" size="sm">
             Нет аккаунта? <Anchor href="/register" data-testid="login-register-link">Зарегистрироваться</Anchor>
           </Text>
