@@ -22,7 +22,7 @@ async function proxy(req: NextRequest, pathSegments: string[] | undefined) {
   const target = new URL(apiPath, `${base}/`);
   target.search = req.nextUrl.searchParams.toString();
 
-  const headers = new Headers();
+  const upstreamHeaders = new Headers();
   req.headers.forEach((value, key) => {
     const lower = key.toLowerCase();
     if (
@@ -33,12 +33,12 @@ async function proxy(req: NextRequest, pathSegments: string[] | undefined) {
     ) {
       return;
     }
-    headers.set(key, value);
+    upstreamHeaders.set(key, value);
   });
 
   const init: RequestInit = {
     method: req.method,
-    headers,
+    headers: upstreamHeaders,
     redirect: "manual",
   };
 
@@ -48,24 +48,22 @@ async function proxy(req: NextRequest, pathSegments: string[] | undefined) {
 
   const res = await fetch(target.toString(), init);
 
-  const out = new NextResponse(res.body, {
+  // Buffer the full body instead of streaming `res.body`. Forwarding hop-by-hop
+  // headers (or a stale Content-Length after decode) can truncate the payload on
+  // the browser side and break JSON.parse (e.g. "Unterminated string in JSON").
+  const body = await res.arrayBuffer();
+
+  const outHeaders = new Headers();
+  const contentType = res.headers.get("content-type");
+  if (contentType) {
+    outHeaders.set("content-type", contentType);
+  }
+
+  return new NextResponse(body, {
     status: res.status,
     statusText: res.statusText,
+    headers: outHeaders,
   });
-
-  res.headers.forEach((value, key) => {
-    const lower = key.toLowerCase();
-    if (
-      lower === "transfer-encoding" ||
-      lower === "connection" ||
-      lower === "content-encoding"
-    ) {
-      return;
-    }
-    out.headers.set(key, value);
-  });
-
-  return out;
 }
 
 type Ctx = { params: Promise<{ path?: string[] }> };

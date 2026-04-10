@@ -170,6 +170,27 @@ async function authFetch(url: string, options?: RequestInit): Promise<Response> 
   });
 }
 
+function messageFromNonJsonBody(text: string, status: number): string {
+  const t = text.trim();
+  if (!t) return `HTTP ${status}`;
+  try {
+    const j = JSON.parse(t) as { error?: string };
+    return j.error || `HTTP ${status}`;
+  } catch {
+    return "Сервер вернул неожиданный ответ. Попробуйте позже.";
+  }
+}
+
+function parseAuthJson(text: string): AuthResponse {
+  try {
+    return JSON.parse(text) as AuthResponse;
+  } catch {
+    throw new Error(
+      "Некорректный ответ сервера. Попробуйте позже или обновите страницу.",
+    );
+  }
+}
+
 // Auth API
 export async function register(data: RegisterRequest): Promise<AuthResponse> {
   const res = await fetch("/api/auth/register", {
@@ -177,11 +198,11 @@ export async function register(data: RegisterRequest): Promise<AuthResponse> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
+  const text = await res.text();
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || "Registration failed");
+    throw new Error(messageFromNonJsonBody(text, res.status));
   }
-  const result = await res.json();
+  const result = parseAuthJson(text);
   setAuthToken(result.token);
   return result;
 }
@@ -192,11 +213,11 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
+  const text = await res.text();
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || "Login failed");
+    throw new Error(messageFromNonJsonBody(text, res.status));
   }
-  const result = await res.json();
+  const result = parseAuthJson(text);
   setAuthToken(result.token);
   return result;
 }
