@@ -1,16 +1,9 @@
 import type { NextConfig } from "next";
 
-const apiUrl = process.env.API_PROXY_URL || "http://localhost:8080";
-
-const nextConfig: NextConfig = {
-  async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${apiUrl}/api/:path*`,
-      },
-    ];
-  },
-};
+/**
+ * `/api/*` проксируется в runtime через `app/api/[[...path]]/route.ts`
+ * на `API_PROXY_URL` (Docker Compose, Render и т.д.).
+ */
+const nextConfig: NextConfig = {};
 
 export default nextConfig;

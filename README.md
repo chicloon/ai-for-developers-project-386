@@ -89,6 +89,15 @@ go build ./cmd/server
 - `DATABASE_URL` — строка подключения к PostgreSQL (по умолчанию: `postgres://postgres:postgres@localhost:5432/call_booking?sslmode=disable`)
 - `PORT` — порт сервера (по умолчанию: `8080`)
 
+Для production с **Supabase** и TLS (`sslmode=require`):
+
+- **Прямое подключение** (`db.<project-ref>.supabase.co:5432`, пользователь `postgres`) — по умолчанию **только IPv6**. На **Render** и других IPv4-only платформах не подойдёт без IPv4 add-on в Supabase.
+- **Session pooler** (Supabase Dashboard → **Connect** → **Session mode**) — **IPv4 + IPv6**, подходит для долгоживущего бэкенда на Render. Строка вида:  
+  `postgresql://postgres.<project-ref>:<db-password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require`
+- **Transaction pooler** (порт `6543`) — чаще для serverless; в режиме transaction у Postgres pooler **нет поддержки prepared statements**; для Go `pgx` надёжнее **session pooler** на `5432` или отдельная настройка simple protocol (см. [документацию Supabase](https://supabase.com/docs/guides/database/connecting-to-postgres)).
+
+Скопируйте готовую строку из Dashboard (Connect) и вставьте в переменную `DATABASE_URL` на Render.
+
 ### 3. Фронтенд
 
 ```bash
@@ -98,7 +107,18 @@ cd web && npm run dev
 
 Фронтенд запустится на `http://localhost:3000`.
 
-Клиент обращается к API только по путям `/api/*` (тот же origin). В dev Next.js проксирует их на бэкенд (`web/next.config.ts`). Отдельный `.env.local` для URL API не требуется.
+Клиент обращается к API только по путям `/api/*` (тот же origin). Запросы проксируются на бэкенд в runtime через [`web/app/api/[[...path]]/route.ts`](web/app/api/[[...path]]/route.ts) и переменную `API_PROXY_URL` (в dev по умолчанию `http://localhost:8080` из окружения при `npm run dev` — при необходимости задайте в `.env.local`).
+
+## Деплой на Render (API + Web)
+
+Нужны **два** Web Service: образ из [`Dockerfile`](Dockerfile) (только API) и из [`Dockerfile.web`](Dockerfile.web) (Next.js).
+
+1. **Blueprint (рекомендуется):** в корне репозитория есть [`render.yaml`](render.yaml). В Render: **New → Blueprint** → выберите репозиторий. После создания сервисов укажите **`DATABASE_URL`** для API (Supabase Session pooler, см. выше). `JWT_SECRET` для API сгенерируется сам; для Web **`API_PROXY_URL`** подставится из публичного URL API.
+2. **Вручную:** создайте два сервиса **Docker** с теми же Dockerfile, регион и план по желанию. У API: `DATABASE_URL`, `JWT_SECRET` (≥ 32 символа). У Web: `API_PROXY_URL` = полный URL API, например `https://call-booking-api.onrender.com` (без слэша в конце).
+
+**Открывайте в браузере URL веб-сервиса** — там интерфейс и тот же `/api/*` через прокси. URL только API показывает заглушку на `/` и отвечает на `/health` и `/api/*`.
+
+Render задаёт **`PORT`**; Next.js слушает его в [`Dockerfile.web`](Dockerfile.web), Go — из `PORT` в [`cmd/server/main.go`](cmd/server/main.go).
 
 ## Деплой на VPS (Docker)
 

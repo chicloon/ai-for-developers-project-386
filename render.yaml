@@ -1,0 +1,34 @@
+# Render Blueprint: API (Go) + Web (Next.js).
+# Подключение: Dashboard → New → Blueprint → указать репозиторий.
+# После первого применения задайте DATABASE_URL (Supabase Session pooler) для сервиса API вручную, если sync: false.
+#
+# Пользовательский URL приложения — у сервиса *-web. API доступен по своему *.onrender.com (/health, /api/*).
+
+services:
+  - type: web
+    name: call-booking-api
+    runtime: docker
+    region: frankfurt
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+
+  - type: web
+    name: call-booking-web
+    runtime: docker
+    region: frankfurt
+    plan: free
+    dockerfilePath: ./Dockerfile.web
+    dockerContext: .
+    healthCheckPath: /
+    envVars:
+      - key: API_PROXY_URL
+        fromService:
+          name: call-booking-api
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL

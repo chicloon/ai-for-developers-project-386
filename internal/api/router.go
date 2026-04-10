@@ -2,7 +2,9 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
 
 	"call-booking/internal/auth"
 
@@ -42,6 +44,21 @@ func NewRouter(pool *pgxpool.Pool) *chi.Mux {
 	// Health check endpoint
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		jsonResponse(w, http.StatusOK, map[string]string{"status": "ok", "service": "api"})
+	})
+
+	// Root: this deploy is API-only (see Dockerfile). Browsers opening "/" get a hint instead of chi's plain 404.
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		if u := os.Getenv("PUBLIC_WEB_URL"); u != "" {
+			http.Redirect(w, r, u, http.StatusFound)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = fmt.Fprintf(w, `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><title>Call Booking API</title></head><body>
+<h1>Call Booking — API</h1>
+<p>На этом URL работает только бэкенд (маршруты <code>/api/*</code> и <a href="/health">/health</a>).</p>
+<p>Интерфейс (Next.js) нужно задеплоить отдельным Web Service в Render из <code>Dockerfile.web</code>, с переменной <code>API_PROXY_URL</code> = базовый URL этого API (например <code>https://%s</code> без слэша в конце).</p>
+</body></html>`, r.Host)
 	})
 
 	// Public routes (no JWT required)

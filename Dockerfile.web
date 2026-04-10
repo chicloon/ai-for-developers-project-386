@@ -1,5 +1,5 @@
 FROM node:20-alpine AS builder
-# Must match Docker Compose service name so Next rewrites reach the API container
+# Runtime proxy reads API_PROXY_URL; build does not need a real API URL
 ARG API_PROXY_URL=http://api:8080
 ENV API_PROXY_URL=$API_PROXY_URL
 WORKDIR /app
@@ -26,4 +26,5 @@ ENV NODE_ENV=production
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "cd web && npm run start"]
+# Render и др. задают PORT (часто 10000); локально по умолчанию 3000
+CMD ["sh", "-c", "cd web && exec ./node_modules/.bin/next start -p ${PORT:-3000}"]
