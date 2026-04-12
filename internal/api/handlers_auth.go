@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 
 	"call-booking/internal/auth"
 	"call-booking/internal/models"
@@ -12,6 +13,26 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// mapAuthDBError turns pgx errors into a short client message; details go to logs.
+func mapAuthDBError(err error) string {
+	if err == nil {
+		return "database error"
+	}
+	s := err.Error()
+	switch {
+	case strings.Contains(s, "does not exist") && (strings.Contains(s, "relation") || strings.Contains(s, "table")):
+		return "Схема БД не готова: выполните миграции или проверьте DATABASE_URL."
+	case strings.Contains(s, "column") && strings.Contains(s, "does not exist"):
+		return "Схема БД не совпадает с приложением: примените миграции из каталога migrations."
+	case strings.Contains(s, "password authentication failed"):
+		return "Ошибка подключения к БД: неверные учётные данные."
+	case strings.Contains(s, "timeout") || strings.Contains(s, "connection refused") || strings.Contains(s, "no such host"):
+		return "База данных недоступна: проверьте DATABASE_URL и сеть."
+	default:
+		return "database error"
+	}
+}
 
 type authHandler struct {
 	pool *pgxpool.Pool
@@ -47,7 +68,8 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 		"SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)",
 		req.Email).Scan(&exists)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, "database error")
+		log.Printf("register: check email exists: %v", err)
+		jsonError(w, http.StatusInternalServerError, mapAuthDBError(err))
 		return
 	}
 	if exists {
@@ -69,7 +91,8 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 		req.Email, hash, req.Name).
 		Scan(&user.ID, &user.Email, &user.Name, &user.IsPublic, &user.CreatedAt)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, "database error")
+		log.Printf("register: insert user: %v", err)
+		jsonError(w, http.StatusInternalServerError, mapAuthDBError(err))
 		return
 	}
 
@@ -129,7 +152,8 @@ func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, http.StatusUnauthorized, "Неверный email или пароль")
 			return
 		}
-		jsonError(w, http.StatusInternalServerError, "database error")
+		log.Printf("login: select user: %v", err)
+		jsonError(w, http.StatusInternalServerError, mapAuthDBError(err))
 		return
 	}
 

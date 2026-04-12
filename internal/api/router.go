@@ -44,6 +44,13 @@ func NewRouter(pool *pgxpool.Pool) *chi.Mux {
 		jsonResponse(w, http.StatusOK, map[string]string{"status": "ok", "service": "api"})
 	})
 
+	// Root: browsers opening http://localhost:8080/ get a useful response (API has no HTML UI)
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("Call Booking API — use /health and /api/*\n"))
+	})
+
 	// Public routes (no JWT required)
 	r.Mount("/api/auth", authRouter(pool))
 

@@ -17,11 +17,25 @@
 
 ### Быстрый старт
 
+Образы API и Web по умолчанию тянутся с **GitHub Container Registry** (`ghcr.io`). Если пакеты **приватные**, анонимный `docker pull` завершится с **401 Unauthorized**. Возможны два варианта:
+
+**Вариант 1 — локальная сборка (без входа в GHCR):**
+
 ```bash
+docker compose up -d --build
+```
+
+**Вариант 2 — скачивать готовые образы с GHCR:** создайте [Personal Access Token](https://github.com/settings/tokens) с правом **`read:packages`**, затем:
+
+```bash
+echo YOUR_GITHUB_TOKEN | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+docker compose pull
 docker compose up -d
 ```
 
 Переменная `DATABASE_URL` для сервиса `api` необязательна: по умолчанию используется строка из `docker-compose.yml` (подключение к контейнеру `db`). Для своей БД задайте `DATABASE_URL` в окружении или в файле `.env` рядом с compose.
+
+При **Supabase** и других облачных Postgres обычно нужен **`?sslmode=require`** в строке подключения. API при старте **обязательно применяет миграции** из `migrations/` — если миграция не прошла, процесс завершится с ошибкой в логах (раньше сервер мог подняться без схемы и возвращать «database error» при регистрации).
 
 Будут запущены:
 - **PostgreSQL**: порт 5432
@@ -32,13 +46,18 @@ docker compose up -d
 ### Доступ
 
 - **Frontend**: http://localhost:80
-- **API**: http://localhost:80/api
+- **API через Nginx**: http://localhost:80/api
+- **API напрямую** (контейнер `api` проброшен на хост): http://localhost:8080/ и http://localhost:8080/health
 
 ### Остановка
 
 ```bash
 docker compose down
 ```
+
+### Бесконечный индикатор загрузки
+
+Если в браузере крутится загрузка на защищённых страницах (`/my/...`), чаще всего не отвечает **API** или запрос `/api/auth/me` не доходит (сохранённый JWT в `localStorage`). Проверьте: `docker compose ps`, логи `docker compose logs api`, доступность `http://localhost/api` или при `npm run dev` — что бэкенд слушает порт **8080** и прокси в `web/next.config.ts` указывает на него. После исправления при необходимости выйдите из сессии или очистите `localStorage` для сайта.
 
 ## Запуск отдельных сервисов
 

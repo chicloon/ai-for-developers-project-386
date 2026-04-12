@@ -34,11 +34,8 @@ func main() {
 		log.Fatalf("Failed to ping database: %v", err)
 	}
 
-	// Run migrations with error handling for idempotent operations
 	if err := db.Migrate(ctx, pool, "migrations"); err != nil {
-		// Log error but don't fail - tables may already exist
-		fmt.Printf("Migration warning: %v\n", err)
-		fmt.Println("Continuing startup (tables should already exist)...")
+		log.Fatalf("Migrations failed (fix DATABASE_URL / permissions and restart): %v", err)
 	}
 
 	router := api.NewRouter(pool)

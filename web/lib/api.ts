@@ -156,8 +156,9 @@ export function getAuthToken(): string | null {
 // Helper function for authenticated requests
 async function authFetch(url: string, options?: RequestInit): Promise<Response> {
   const token = getAuthToken();
+  const baseHeaders = options?.headers as Record<string, string> | undefined;
   const headers: Record<string, string> = {
-    ...(options?.headers as Record<string, string>),
+    ...baseHeaders,
   };
 
   if (token) {
@@ -170,6 +171,34 @@ async function authFetch(url: string, options?: RequestInit): Promise<Response> 
   });
 }
 
+/**
+ * Reads error details from a failed response.
+ * Go API returns JSON `{ "error": "..." }`; proxies may return plain text ("Internal Server Error") or HTML.
+ */
+async function readErrorMessage(res: Response, fallback: string): Promise<string> {
+  const text = await res.text();
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return `${fallback} (HTTP ${res.status})`;
+  }
+  if (trimmed.startsWith("{")) {
+    try {
+      const data = JSON.parse(trimmed) as { error?: string };
+      if (typeof data.error === "string" && data.error.length > 0) {
+        return data.error;
+      }
+    } catch {
+      /* not valid JSON */
+    }
+  }
+  const oneLine = trimmed.replace(/\s+/g, " ");
+  const short = oneLine.length > 180 ? `${oneLine.slice(0, 180)}…` : oneLine;
+  return short || `${fallback} (HTTP ${res.status})`;
+}
+
+/** Prevents infinite loading when /api/auth/me never completes (API down, bad proxy, etc.). */
+const GET_ME_TIMEOUT_MS = 15_000;
+
 // Auth API
 export async function register(data: RegisterRequest): Promise<AuthResponse> {
   const res = await fetch("/api/auth/register", {
@@ -178,8 +207,8 @@ export async function register(data: RegisterRequest): Promise<AuthResponse> {
     body: JSON.stringify(data),
   });
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || "Registration failed");
+    const msg = await readErrorMessage(res, "Registration failed");
+    throw new Error(msg);
   }
   const result = await res.json();
   setAuthToken(result.token);
@@ -193,8 +222,8 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
     body: JSON.stringify(data),
   });
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || "Login failed");
+    const msg = await readErrorMessage(res, "Login failed");
+    throw new Error(msg);
   }
   const result = await res.json();
   setAuthToken(result.token);
@@ -202,9 +231,18 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
 }
 
 export async function getMe(): Promise<User> {
-  const res = await authFetch("/api/auth/me");
-  if (!res.ok) throw new Error("Failed to get user");
-  return res.json();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), GET_ME_TIMEOUT_MS);
+  try {
+    const res = await authFetch("/api/auth/me", { signal: controller.signal });
+    if (!res.ok) {
+      const msg = await readErrorMessage(res, "Failed to get user");
+      throw new Error(msg);
+    }
+    return res.json();
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export function logout() {
