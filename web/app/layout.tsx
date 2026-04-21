@@ -20,45 +20,45 @@ export const metadata: Metadata = {
   description: "Бронирование времени для звонков",
 };
 
-// Light theme primary colors based on #E67E22 (pumpkin warm)
+// Light theme primary colors - Winter Frost (icy blue tones)
 const lightPrimaryColors: MantineColorsTuple = [
-  "#FFF5EB",
-  "#FFE6D1",
-  "#FFCCAA",
-  "#F5B07A",
-  "#EB9955",
-  "#E67E22",
-  "#D4701F",
-  "#BF621B",
-  "#A85417",
-  "#8F4613",
+  "#F0F8FF", // Alice Blue
+  "#E1F0FA",
+  "#C2E3F5",
+  "#A3D6F0",
+  "#6BB6E8",
+  "#4A9FD8",
+  "#3A8BC4",
+  "#2A77B0",
+  "#1A639C",
+  "#0A4F88",
 ];
 
-// Dark theme primary colors based on #FF8C00 (amber accent)
+// Dark theme primary colors - Winter Night (deep blue with cyan accents)
 const darkPrimaryColors: MantineColorsTuple = [
-  "#FFF4E0",
-  "#FFE4B8",
-  "#FFD08A",
-  "#FFBC5C",
-  "#FFA82E",
-  "#FF8C00",
-  "#E67D00",
-  "#CC6F00",
-  "#B36000",
-  "#995200",
+  "#E8F4F8",
+  "#B8E0EC",
+  "#88CCF0",
+  "#58B8F4",
+  "#28A4F8",
+  "#00BFFF", // Deep Sky Blue
+  "#0099CC",
+  "#007399",
+  "#004D66",
+  "#002633",
 ];
 
 const theme = createTheme({
-  primaryColor: "orange",
+  primaryColor: "blue",
   colors: {
-    orange: lightPrimaryColors,
-    darkOrange: darkPrimaryColors,
+    blue: lightPrimaryColors,
+    darkBlue: darkPrimaryColors,
   },
   primaryShade: { light: 5, dark: 5 },
   other: {
     backgroundColors: {
-      light: "#FDF6E3",
-      dark: "#1A1A2E",
+      light: "#F7FAFC", // Icy white
+      dark: "#0D1B2A",  // Deep winter night
     },
   },
 });
