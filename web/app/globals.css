@@ -5,51 +5,51 @@ body {
 
 /* ============================================
    CSS Custom Properties - Design System
-   Light: Pumpkin Warm | Dark: Amber Accent
+   Light: Winter Frost | Dark: Winter Night
    ============================================ */
 
-/* Light Theme (Pumpkin Warm) - Default */
+/* Light Theme (Winter Frost) - Default */
 :root,
 [data-mantine-color-scheme="light"] {
   /* Background Colors */
-  --bg-primary: #FDF6E3;
-  --bg-secondary: #F5E6D3;
+  --bg-primary: #F7FAFC;
+  --bg-secondary: #E8F4F8;
   --bg-card: #FFFFFF;
   
   /* Primary Colors */
-  --primary-color: #E67E22;
-  --primary-color-dark: #D35400;
-  --primary-gradient: linear-gradient(135deg, #E67E22 0%, #D35400 100%);
+  --primary-color: #4A9FD8;
+  --primary-color-dark: #2A77B0;
+  --primary-gradient: linear-gradient(135deg, #4A9FD8 0%, #3A8BC4 100%);
   
   /* Text Colors */
-  --text-primary: #2C1810;
-  --text-secondary: #5D4037;
-  --text-muted: #8D6E63;
+  --text-primary: #1A2B3C;
+  --text-secondary: #3D5A73;
+  --text-muted: #6B8CA6;
   
   /* Border Colors */
-  --border-color: #F5E6D3;
-  --border-hover: #E67E22;
+  --border-color: #D0E8F2;
+  --border-hover: #4A9FD8;
   
   /* Shadow Colors */
-  --shadow-color: rgba(230, 126, 34, 0.15);
-  --shadow-hover: rgba(230, 126, 34, 0.25);
+  --shadow-color: rgba(74, 159, 216, 0.15);
+  --shadow-hover: rgba(74, 159, 216, 0.25);
   
   /* Accent Colors */
-  --accent-glow: rgba(230, 126, 34, 0.2);
-  --accent-subtle: rgba(230, 126, 34, 0.1);
+  --accent-glow: rgba(74, 159, 216, 0.2);
+  --accent-subtle: rgba(74, 159, 216, 0.1);
 }
 
-/* Dark Theme (Amber Accent) */
+/* Dark Theme (Winter Night) */
 [data-mantine-color-scheme="dark"] {
   /* Background Colors */
-  --bg-primary: linear-gradient(135deg, #1A1A2E 0%, #0F0F1E 100%);
+  --bg-primary: linear-gradient(135deg, #0D1B2A 0%, #1B263B 100%);
   --bg-secondary: rgba(255, 255, 255, 0.05);
   --bg-card: rgba(255, 255, 255, 0.08);
   
   /* Primary Colors */
-  --primary-color: #FF8C00;
-  --primary-color-dark: #FF6347;
-  --primary-gradient: linear-gradient(135deg, #FF8C00 0%, #FF6347 100%);
+  --primary-color: #00BFFF;
+  --primary-color-dark: #28A4F8;
+  --primary-gradient: linear-gradient(135deg, #00BFFF 0%, #58B8F4 100%);
   
   /* Text Colors */
   --text-primary: #FFFFFF;
@@ -58,15 +58,15 @@ body {
   
   /* Border Colors */
   --border-color: rgba(255, 255, 255, 0.1);
-  --border-hover: rgba(255, 140, 0, 0.5);
+  --border-hover: rgba(0, 191, 255, 0.5);
   
   /* Shadow Colors */
-  --shadow-color: rgba(255, 140, 0, 0.2);
-  --shadow-hover: rgba(255, 140, 0, 0.4);
+  --shadow-color: rgba(0, 191, 255, 0.2);
+  --shadow-hover: rgba(0, 191, 255, 0.4);
   
   /* Accent Colors */
-  --accent-glow: rgba(255, 140, 0, 0.3);
-  --accent-subtle: rgba(255, 140, 0, 0.15);
+  --accent-glow: rgba(0, 191, 255, 0.3);
+  --accent-subtle: rgba(0, 191, 255, 0.15);
 }
 
 /* ============================================
@@ -124,7 +124,7 @@ body {
     0 0 30px var(--shadow-hover);
 }
 
-/* Подсказка под Select на странице записи — фон и акценты из темы (Pumpkin / Amber) */
+/* Подсказка под Select на странице записи — фон и акценты из темы (Winter Frost / Winter Night) */
 .mantine-Paper-root.users-select-hint {
   background-color: var(--accent-subtle) !important;
   border: 1px solid var(--border-color) !important;
@@ -227,11 +227,11 @@ body {
 }
 
 [data-mantine-color-scheme="light"] .gradient-bg {
-  background: linear-gradient(135deg, #FDF6E3 0%, #F5E6D3 100%);
+  background: linear-gradient(135deg, #F7FAFC 0%, #E8F4F8 100%);
 }
 
 [data-mantine-color-scheme="dark"] .gradient-bg {
-  background: linear-gradient(135deg, #1A1A2E 0%, #0F0F1E 100%);
+  background: linear-gradient(135deg, #0D1B2A 0%, #1B263B 100%);
 }
 
 /* Glass Effect (Dark Theme Only) */
